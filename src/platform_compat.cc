@@ -130,8 +130,11 @@ void compat_splitpath(const char* path, char* drive, char* dir, char* fname, cha
 
     const char* end = path;
     while (*end != '\0') {
-        if (*end == '/') {
+        // Game paths use '\\' (scripts\\gl*.int); treat it as a separator too,
+        // or every sfall global script path loses its directory on Linux/macOS.
+        if (*end == '/' || *end == '\\') {
             fnameStart = end + 1;
+            extStart = nullptr;
         } else if (*end == '.') {
             extStart = end;
         }

@@ -886,6 +886,18 @@ static void opWhile(Program* program)
     }
 }
 
+// Bounds-checked access to a script's value stack. A bad frame/base offset
+// (e.g. an imported variable no map script exported, which the original exe
+// silently scribbled through) becomes a script error that stops that one
+// script, instead of an uncaught std::out_of_range that takes the server down.
+static ProgramValue& programStackSlot(Program* program, size_t pos)
+{
+    if (pos >= program->stackValues->size()) {
+        programFatalError("stack slot %d out of range (size %d)", (int)pos, (int)program->stackValues->size());
+    }
+    return (*program->stackValues)[pos];
+}
+
 // 0x468518
 static void opStore(Program* program)
 {
@@ -893,13 +905,13 @@ static void opStore(Program* program)
     ProgramValue value = programStackPopValue(program);
     size_t pos = program->framePointer + addr;
 
-    ProgramValue oldValue = program->stackValues->at(pos);
+    ProgramValue oldValue = programStackSlot(program, pos);
 
     if (oldValue.opcode == VALUE_TYPE_DYNAMIC_STRING) {
         _interpretDecStringRef(program, oldValue.opcode, oldValue.integerValue);
     }
 
-    program->stackValues->at(pos) = value;
+    programStackSlot(program, pos) = value;
 
     if (value.opcode == VALUE_TYPE_DYNAMIC_STRING) {
         // NOTE: Uninline.
@@ -913,7 +925,7 @@ static void opFetch(Program* program)
 {
     int addr = programStackPopInteger(program);
 
-    ProgramValue value = program->stackValues->at(program->framePointer + addr);
+    ProgramValue value = programStackSlot(program, program->framePointer + addr);
     programStackPushValue(program, value);
 }
 
@@ -2266,7 +2278,7 @@ static void opFetchGlobalVariable(Program* program)
 {
     int addr = programStackPopInteger(program);
 
-    ProgramValue value = program->stackValues->at(program->basePointer + addr);
+    ProgramValue value = programStackSlot(program, program->basePointer + addr);
     programStackPushValue(program, value);
 }
 
@@ -2276,12 +2288,12 @@ static void opStoreGlobalVariable(Program* program)
     int addr = programStackPopInteger(program);
     ProgramValue value = programStackPopValue(program);
 
-    ProgramValue oldValue = program->stackValues->at(program->basePointer + addr);
+    ProgramValue oldValue = programStackSlot(program, program->basePointer + addr);
     if (oldValue.opcode == VALUE_TYPE_DYNAMIC_STRING) {
         _interpretDecStringRef(program, oldValue.opcode, oldValue.integerValue);
     }
 
-    program->stackValues->at(program->basePointer + addr) = value;
+    programStackSlot(program, program->basePointer + addr) = value;
 
     if (value.opcode == VALUE_TYPE_DYNAMIC_STRING) {
         // NOTE: Uninline.

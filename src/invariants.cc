@@ -66,7 +66,16 @@ void invariantsCheck(int beat)
         int hp = critterGetStat(obj, STAT_CURRENT_HIT_POINTS);
         int maxHp = critterGetStat(obj, STAT_MAXIMUM_HIT_POINTS);
         if (hp > maxHp) {
-            fail(beat, obj, "critter current HP exceeds maximum");
+            // Mod data can place a critter above its maximum (the Restoration
+            // Project's Merchant map does); the original engine tolerates it.
+            // Strict for the golden harness, clamp-and-log for a live world so
+            // one data quirk does not shut the server down for every player.
+            if (getenv("F2_STRICT_INVARIANTS") != nullptr) {
+                fail(beat, obj, "critter current HP exceeds maximum");
+            }
+            fprintf(stderr, "invariant: clamped HP %d > max %d (obj id=%d pid=0x%08X) [beat %d]\n",
+                hp, maxHp, obj->id, obj->pid, beat);
+            critterSetBaseStat(obj, STAT_CURRENT_HIT_POINTS, maxHp);
         }
 
         // A critter marked dead (DAM_DEAD, the definitive kill flag set by

@@ -18,6 +18,8 @@
 # Usage:
 #   tests/golden/run_golden_server.sh          # verify all cases
 #   BLESS=1 tests/golden/run_golden_server.sh  # re-record (signed-off change)
+# Invariant checks abort the run here (live servers clamp and log instead).
+export F2_STRICT_INVARIANTS=1
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

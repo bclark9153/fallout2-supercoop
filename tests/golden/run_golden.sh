@@ -12,6 +12,8 @@
 # Env overrides:
 #   F2_GAME_DIR  game assets dir (default <repo>/FO2)
 #   F2_BIN       game binary     (default <repo>/build/fallout2-ce)
+# Invariant checks abort the run here (live servers clamp and log instead).
+export F2_STRICT_INVARIANTS=1
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

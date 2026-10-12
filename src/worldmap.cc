@@ -2084,7 +2084,9 @@ static int wmAreaInit()
 
     configFree(&cfg);
 
-    if (wmMaxAreaNum != CITY_COUNT) {
+    // SFALL: allow mods to add areas (sfall removes vanilla's exact-count check;
+    // the Restoration Project ships 61). Fewer than vanilla is still an error.
+    if (wmMaxAreaNum < CITY_COUNT) {
         presenter()->errorBox("\nwmAreaInit::Error loading Cities!");
         exit(1);
     }

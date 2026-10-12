@@ -337,6 +337,44 @@ void gameResetSim()
 }
 
 // 0x44418C
+// SFALL: load mods listed in mods\mods_order.txt (sfall 4.4+ / 3.8.40+).
+static void gameDbOpenModsOrder()
+{
+    FILE* stream = compat_fopen("mods\\mods_order.txt", "rt");
+    if (stream == nullptr) {
+        return;
+    }
+
+    char line[COMPAT_MAX_PATH];
+    while (fgets(line, sizeof(line), stream) != nullptr) {
+        // Trim trailing whitespace / CR / LF and leading whitespace.
+        size_t len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r' || line[len - 1] == ' ' || line[len - 1] == '\t')) {
+            line[--len] = '\0';
+        }
+        char* name = line;
+        while (*name == ' ' || *name == '\t') {
+            name++;
+        }
+        if (*name == '\0' || *name == ';' || *name == '#') {
+            continue;
+        }
+
+        char path[COMPAT_MAX_PATH];
+        snprintf(path, sizeof(path), "mods\\%s", name);
+        if (compat_access(path, 0) != 0) {
+            debugPrint("mods_order.txt: '%s' not found, skipped\n", name);
+            continue;
+        }
+
+        if (dbOpen(path, 0, nullptr, 1) == 0) {
+            debugPrint("mods_order.txt: loaded '%s'\n", name);
+        }
+    }
+
+    fclose(stream);
+}
+
 int gameDbInit()
 {
     const char* main_file_name;
@@ -356,6 +394,7 @@ int gameDbInit()
     if (*patch_file_name == '\0') {
         patch_file_name = nullptr;
     }
+    bool master_patches_path_valid = patch_file_name != nullptr;
 
     int master_db_handle = dbOpen(main_file_name, 0, patch_file_name, 1);
     if (master_db_handle == -1) {
@@ -372,6 +411,7 @@ int gameDbInit()
     if (*patch_file_name == '\0') {
         patch_file_name = nullptr;
     }
+    bool critter_patches_path_valid = patch_file_name != nullptr;
 
     int critter_db_handle = dbOpen(main_file_name, 0, patch_file_name, 1);
     if (critter_db_handle == -1) {
@@ -392,6 +432,21 @@ int gameDbInit()
         path_file_name_template = "patch%03d.dat";
     }
 
+    // SFALL: data load order. Every open pushes onto the front of the search
+    // chain, so open from LOWEST to HIGHEST priority. sfall's order, highest
+    // first: master_patches > critter_patches > mods_order.txt > patchXXX.dat >
+    // sfall.dat > critter.dat > f2_res.dat > master.dat. Vanilla CE opened
+    // f2_res.dat last (above everything, including the data folder) and had no
+    // mods loader, so a mod DAT would outrank the per-save protos the engine
+    // writes under data\proto.
+    if (compat_access("f2_res.dat", 0) == 0) {
+        dbOpen("f2_res.dat", 0, nullptr, 1);
+    }
+
+    if (compat_access("sfall.dat", 0) == 0) {
+        dbOpen("sfall.dat", 0, nullptr, 1);
+    }
+
     for (patch_index = 0; patch_index < 1000; patch_index++) {
         snprintf(filename, sizeof(filename), path_file_name_template, patch_index);
 
@@ -400,8 +455,17 @@ int gameDbInit()
         }
     }
 
-    if (compat_access("f2_res.dat", 0) == 0) {
-        dbOpen("f2_res.dat", 0, nullptr, 1);
+    // SFALL: mods\mods_order.txt, top to bottom; a lower line wins over a
+    // higher one. Entries are .dat files or folders inside mods\. ';' or '#'
+    // comments a line out. Missing entries are skipped.
+    gameDbOpenModsOrder();
+
+    // Put the loose-file folders back on top of the chain.
+    if (critter_patches_path_valid) {
+        dbOpen(nullptr, 0, settings.system.critter_patches_path.c_str(), 1);
+    }
+    if (master_patches_path_valid) {
+        dbOpen(nullptr, 0, settings.system.master_patches_path.c_str(), 1);
     }
 
     return 0;
