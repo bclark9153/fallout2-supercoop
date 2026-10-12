@@ -5,8 +5,13 @@
 
 #include "combat_defs.h"
 #include "debug.h"
+#include "game.h"
 #include "interpreter.h"
+#include "server_loop.h"
+#include "server_players.h"
 #include "sfall_global_scripts.h"
+#include <bitset>
+#include <unordered_map>
 
 namespace fallout {
 
@@ -38,6 +43,9 @@ struct HookFrame {
 
 std::vector<HookFrame> gFrames;
 
+    // actor object id -> DirectInput keys currently held on that player's client.
+    std::unordered_map<int, std::bitset<256>> gCoopHeldKeys;
+
 HookFrame* currentFrame()
 {
     return gFrames.empty() ? nullptr : &gFrames.back();
@@ -61,7 +69,17 @@ ProgramValue sanitize(const ProgramValue& value)
 // Runs every handler for |hookId| with |args|. Returns false (and runs
 // nothing) when there are no handlers, the hook is already running higher up
 // the stack (sfall forbids recursion), or the depth limit is reached.
-bool runHook(int hookId, const ProgramValue* args, int argCount, HookFrame& out)
+    // The player a hook is about (the user of an item, the wielder, the one who
+    // pressed a key), or nullptr. Only meaningful on a dedicated co-op server.
+    Object* coopSubject(Object* candidate)
+    {
+        if (candidate == nullptr || !serverDedicatedActive() || !playerActorIs(candidate)) {
+            return nullptr;
+        }
+        return candidate;
+    }
+
+    bool runHook(int hookId, const ProgramValue* args, int argCount, HookFrame& out, Object* subject = nullptr)
 {
     if (!hookIdValid(hookId) || gHooks[hookId].empty()) {
         return false;
@@ -86,13 +104,33 @@ bool runHook(int hookId, const ProgramValue* args, int argCount, HookFrame& out)
     }
     frame->retCount = 0;
 
+        // Co-op: run the handlers AS the subject player, so dude_obj in them is the
+        // player who drank, wielded or pressed the key, not the host.
+        subject = coopSubject(subject);
+        ServerActorScope scope(subject);
+
     // Copy: a handler may register/unregister while we iterate.
     std::vector<HookHandler> handlers = gHooks[hookId];
+        std::vector<int> gvarsBefore;
     for (int index = static_cast<int>(handlers.size()) - 1; index >= 0; index--) {
         frame = &gFrames.back();
         frame->argCursor = 0;
         frame->handlerRetCount = 0;
+
+            // A handler that changes a global var for a player makes that player its
+            // script's owner: the script's timer then acts on them (the drinker who
+            // became an alcoholic is the one who later gets the shakes).
+            bool trackOwner = subject != nullptr && gGameGlobalVarsLength > 0;
+            if (trackOwner) {
+                gvarsBefore.assign(gGameGlobalVars, gGameGlobalVars + gGameGlobalVarsLength);
+            }
+
         _executeProcedure(handlers[index].program, handlers[index].procedureIndex);
+
+            if (trackOwner && static_cast<int>(gvarsBefore.size()) == gGameGlobalVarsLength
+                && !std::equal(gvarsBefore.begin(), gvarsBefore.end(), gGameGlobalVars)) {
+                sfall_gl_scr_set_owner(handlers[index].program, subject);
+            }
     }
 
     out = gFrames.back();
@@ -260,7 +298,7 @@ int sfallHookUseObjOn(Object* target, Object* user, Object* item)
     }
     ProgramValue args[] = { ptrValue(target), ptrValue(user), ptrValue(item) };
     HookFrame result;
-    if (!runHook(SFALL_HOOK_USEOBJON, args, 3, result) || result.retCount < 1) {
+    if (!runHook(SFALL_HOOK_USEOBJON, args, 3, result, playerActorIs(user) ? user : target) || result.retCount < 1) {
         return -1;
     }
     return result.rets[0].asInt();
@@ -273,7 +311,7 @@ int sfallHookUseObj(Object* user, Object* item)
     }
     ProgramValue args[] = { ptrValue(user), ptrValue(item) };
     HookFrame result;
-    if (!runHook(SFALL_HOOK_USEOBJ, args, 2, result) || result.retCount < 1) {
+    if (!runHook(SFALL_HOOK_USEOBJ, args, 2, result, user) || result.retCount < 1) {
         return -1;
     }
     return result.rets[0].asInt();
@@ -286,7 +324,7 @@ bool sfallHookInvenWield(Object* critter, Object* item, int slot, bool wield, bo
     }
     ProgramValue args[] = { ptrValue(critter), ptrValue(item), ProgramValue(slot), ProgramValue(wield ? 1 : 0), ProgramValue(remove ? 1 : 0) };
     HookFrame result;
-    if (!runHook(SFALL_HOOK_INVENWIELD, args, 5, result)) {
+    if (!runHook(SFALL_HOOK_INVENWIELD, args, 5, result, critter)) {
         return true;
     }
     return result.retCount == 0 || result.rets[0].asInt() == -1;
@@ -299,20 +337,20 @@ bool sfallHookCanUseWeapon(bool engineResult, Object* critter, Object* weapon, i
     }
     ProgramValue args[] = { ptrValue(critter), ptrValue(weapon), ProgramValue(hitMode), ProgramValue(engineResult ? 1 : 0) };
     HookFrame result;
-    if (!runHook(SFALL_HOOK_CANUSEWEAPON, args, 4, result) || result.retCount < 1) {
+    if (!runHook(SFALL_HOOK_CANUSEWEAPON, args, 4, result, critter) || result.retCount < 1) {
         return engineResult;
     }
     return result.rets[0].asInt() != 0;
 }
 
-int sfallHookInventoryMove(int slot, Object* item, Object* replaced)
+int sfallHookInventoryMove(int slot, Object* item, Object* replaced, Object* mover)
 {
     if (!sfallHookHasScripts(SFALL_HOOK_INVENTORYMOVE)) {
         return -1;
     }
     ProgramValue args[] = { ProgramValue(slot), ptrValue(item), ptrValue(replaced) };
     HookFrame result;
-    if (!runHook(SFALL_HOOK_INVENTORYMOVE, args, 3, result) || result.retCount < 1) {
+    if (!runHook(SFALL_HOOK_INVENTORYMOVE, args, 3, result, mover) || result.retCount < 1) {
         return -1;
     }
     return result.rets[0].asInt();
@@ -343,7 +381,7 @@ void sfallHookCombatDamage(Attack* attack, int rounds, int multiplier)
         attackValue,
     };
     HookFrame result;
-    if (!runHook(SFALL_HOOK_COMBATDAMAGE, args, 13, result) || result.retCount < 1) {
+    if (!runHook(SFALL_HOOK_COMBATDAMAGE, args, 13, result, attack->attacker) || result.retCount < 1) {
         return;
     }
 
@@ -374,6 +412,35 @@ void sfallHookGameModeChange(int exitEvent, int previousMode)
     ProgramValue args[] = { ProgramValue(exitEvent), ProgramValue(previousMode) };
     HookFrame result;
     runHook(SFALL_HOOK_GAMEMODECHANGE, args, 2, result);
+}
+
+int sfallHookKeyPress(Object* player, bool pressed, int dxKey, int vkKey)
+{
+    if (!sfallHookHasScripts(SFALL_HOOK_KEYPRESS)) {
+        return 0;
+    }
+    ProgramValue args[] = { ProgramValue(pressed ? 1 : 0), ProgramValue(dxKey), ProgramValue(vkKey) };
+    HookFrame result;
+    if (!runHook(SFALL_HOOK_KEYPRESS, args, 3, result, player) || result.retCount < 1) {
+        return 0;
+    }
+    return result.rets[0].asInt();
+}
+
+void sfallCoopKeySet(Object* player, int dxKey, bool down)
+{
+    if (player != nullptr && dxKey > 0 && dxKey < 256) {
+        gCoopHeldKeys[player->id].set(static_cast<size_t>(dxKey), down);
+    }
+}
+
+bool sfallCoopKeyHeld(Object* player, int dxKey)
+{
+    if (player == nullptr || dxKey <= 0 || dxKey >= 256) {
+        return false;
+    }
+    auto it = gCoopHeldKeys.find(player->id);
+    return it != gCoopHeldKeys.end() && it->second.test(static_cast<size_t>(dxKey));
 }
 
 int sfallHookSetGlobalVar(int index, int value)

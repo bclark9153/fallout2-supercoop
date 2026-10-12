@@ -606,7 +606,7 @@ int _obj_pickup(Object* critter, Object* item)
 
     // SFALL: HOOK_INVENTORYMOVE, event 7 (player picks an item up). Anything
     // but -1 cancels the pickup.
-    if (playerActorIs(critter) && sfallHookInventoryMove(7, item, nullptr) != -1) {
+    if (playerActorIs(critter) && sfallHookInventoryMove(7, item, nullptr, critter) != -1) {
         return -1;
     }
 

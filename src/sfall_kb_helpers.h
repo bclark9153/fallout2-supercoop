@@ -7,4 +7,8 @@ bool sfall_kb_is_key_pressed(int key);
 /// Simulates pressing `key`.
 void sfall_kb_press_key(int key);
 
+/// Windows virtual-key code for a DirectInput key (letters, digits, common
+/// keys); 0 when there is no simple equivalent. HOOK_KEYPRESS's third arg.
+int sfall_kb_vk_from_dx(int key);
+
 #endif /* FALLOUT_SFALL_KB_HELPERS_H_ */

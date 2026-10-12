@@ -2,6 +2,7 @@
 #define FALLOUT_SFALL_EXT_H_
 
 #include "obj_types.h"
+#include <vector>
 
 namespace fallout {
 
@@ -21,11 +22,20 @@ bool sfallCritterNoBurst(Object* critter);
 // show_iface_tag / hide_iface_tag / is_iface_tag_active / add_iface_tag /
 // set_iface_tag_text. State only: the dedicated server has no interface bar,
 // and the co-op client does not draw custom tags yet.
+// Tags act on dude_obj (the acting player in co-op). 0/3/4 are the player's
+// sneak/level/addict flags; 1/2 read poison/radiation; 5+ are custom boxes,
+// kept per player and streamed to that player's client.
 void sfallIfaceTagShow(int tag);
 void sfallIfaceTagHide(int tag);
 bool sfallIfaceTagActive(int tag);
 int sfallIfaceTagAdd();
 void sfallIfaceTagSetText(int tag, const char* text, int color);
+// Custom tags (5+) active for |actor|, ascending; empty when none.
+const std::vector<int>& sfallIfaceCustomTagsFor(Object* actor);
+// Client: replace |actor|'s custom tags with what the server sent.
+void sfallIfaceCustomTagsSet(Object* actor, const int* tags, int count);
+// Server: send every actor's custom tags (a join / rebaseline).
+void sfallIfaceCustomTagsEmitAll();
 
 // set_fake_perk (recorded; not shown on the character screen yet).
 void sfallSetFakePerk(const char* name, int level, int image, const char* desc);

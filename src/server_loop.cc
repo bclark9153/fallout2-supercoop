@@ -37,6 +37,7 @@
 #include "worldmap.h" // wmMapMusicStart — baseline music re-announce
 #include "object.h"
 #include "party_member.h" // objectIsPartyMember — companions ride the baseline (§C domain)
+#include "sfall_ext.h"
 #include "tile.h" // tileDistanceBetween — F2_TRACE_PARTY heartbeat roster line
 
 namespace fallout {
@@ -476,6 +477,8 @@ static void serverEmitBaseline()
     // its OWN screen (while others saw it correctly off the wire). No-op under the
     // null/file presenter, so goldens are unaffected. [[vault-suit-appearance-gap]]
     presenter()->movieSeenState(gameMoviesSeenData(), MOVIE_COUNT);
+    // sfall custom interface tags (RP: crippled, ...) for every player.
+    sfallIfaceCustomTagsEmitAll();
     if (gWorldmapBaseline) {
         gWorldmapBaseline();
     }

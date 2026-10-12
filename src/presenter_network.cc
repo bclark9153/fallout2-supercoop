@@ -251,6 +251,7 @@ enum EventType : unsigned char {
     EVENT_PARTY_WIPE = 68, // everyone is dead: play the death screen, a reload follows
     EVENT_ENDGAME = 69, // the game is won: play the ending slides + credits, no reload
     EVENT_ACCOUNT_STATE = 70, // reply to `account <name>`: (sessionId, known), read by that session only
+        EVENT_IFACE_TAGS = 71, // sfall custom interface tags for one player: actor netId, u16 count, i32 tags
 };
 
 // Event flag bits.
@@ -502,6 +503,18 @@ public:
         putU16((unsigned short)(lineCount > 0 ? lineCount : 0));
         for (int i = 0; i < lineCount; i++) {
             putString(lines[i] != nullptr ? lines[i] : "");
+        }
+        endEvent();
+    }
+
+    void ifaceTags(int actorNetId, const int* tags, int count) override
+    {
+        if (presenterEmissionsSuppressed()) return;
+        beginEvent(EVENT_IFACE_TAGS, EVENT_FLAG_STATE);
+        putI32(actorNetId);
+        putU16((unsigned short)(count > 0 ? count : 0));
+        for (int i = 0; i < count; i++) {
+            putI32(tags[i]);
         }
         endEvent();
     }

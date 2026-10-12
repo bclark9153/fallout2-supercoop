@@ -59,6 +59,7 @@
 #include "combat_ap.h" // kCombatApChargeEnabled — the in-combat revive costs AP
 #include "sheet_intent.h" // sheetEdit* — the character-sheet edit intents (§9)
 #include "perk.h" // PERK_CHOICE_PENDING_* — the Tag!/Mutate! follow-up
+#include "sfall_hooks.h"
 #include "skill.h" // SKILL_* (skilldex allow-list) + skillGetValue for the edit trace
 #include "stat.h" // critterGetStat / STAT_GENDER — armor skin is gender-specific
 #include "tile.h" // tileIsValid / gHexGridSize
@@ -2679,6 +2680,22 @@ void serverControlLine(int sessionId, const char* line)
     Object* actor = serverControlActorForSession(sessionId);
     if (actor == nullptr) {
         fprintf(stderr, "f2_server: control %s from unbound session %d ignored\n", verb, sessionId);
+        return;
+    }
+
+    // `key <down> <dx> <vk>`: a key went down/up on this player's client
+    // (main.cc forwards key transitions while no text box owns the keyboard).
+    // The held set always updates, so sfall key_pressed checks (Party Orders'
+    // Ctrl+key combos) see this player's keyboard; HOOK_KEYPRESS then runs as
+    // this player. Before the dead/busy gates: a key is not an action, and a
+    // release that a gate swallowed would leave the key stuck down.
+    if (strcmp(verb, "key") == 0) {
+        if (n >= 3 && arg2 > 0 && arg2 < 256) {
+            sfallCoopKeySet(actor, arg2, arg != 0);
+            if (!critterIsDead(actor)) {
+                sfallHookKeyPress(actor, arg != 0, arg2, n >= 4 ? arg3 : 0);
+            }
+        }
         return;
     }
 

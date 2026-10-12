@@ -105,6 +105,7 @@
 #include "settings.h"
 #include "platform_compat.h"
 #include "presenter_client.h"
+#include "sfall_hooks.h"
 #include "sfall_kb_helpers.h"
 #include "sound.h"
 #include "svga.h"
@@ -938,6 +939,7 @@ bool clientDialogSpeakerIsPartyMember() { return false; } // never reached: gate
 void delay_ms(int ms) { (void)ms; fallout::serverStubAbort("delay_ms"); }
 // ---- sfall keyboard helpers live in the GLOBAL namespace ----
 // HEADLESS-SAFE (sfall `key_pressed`): no keyboard attached to a server.
-bool sfall_kb_is_key_pressed(int key) { (void)key; fallout::serverStubHeadlessOnce("sfall_kb_is_key_pressed"); return false; }
+// Co-op: the acting player's key, as relayed by their client (`key` verb).
+bool sfall_kb_is_key_pressed(int key) { return fallout::sfallCoopKeyHeld(fallout::gDude, key); }
 // HEADLESS-SAFE (sfall `tap_key`): nothing to type into.
 void sfall_kb_press_key(int key) { (void)key; fallout::serverStubHeadlessOnce("sfall_kb_press_key"); }

@@ -46,12 +46,19 @@ bool sfallHookInvenWield(Object* critter, Object* item, int slot, bool wield, bo
 // HOOK_CANUSEWEAPON: returns the (possibly overridden) result.
 bool sfallHookCanUseWeapon(bool result, Object* critter, Object* weapon, int hitMode);
 // HOOK_INVENTORYMOVE: returns -1 for "use engine handler", else cancel.
-int sfallHookInventoryMove(int slot, Object* item, Object* replaced);
+int sfallHookInventoryMove(int slot, Object* item, Object* replaced, Object* mover = nullptr);
 // HOOK_COMBATDAMAGE: may rewrite the attack's damage/flags/knockback.
 struct Attack;
 void sfallHookCombatDamage(Attack* attack, int rounds, int multiplier);
 // HOOK_GAMEMODECHANGE
 void sfallHookGameModeChange(int exitEvent, int previousMode);
+// HOOK_KEYPRESS for |player| (co-op: relayed from that player's client).
+// Returns the override scancode (0 = none).
+int sfallHookKeyPress(Object* player, bool pressed, int dxKey, int vkKey);
+// Co-op: keys held on each player's client, as relayed (DirectInput codes).
+// key_pressed on the server answers from the acting player's set.
+void sfallCoopKeySet(Object* player, int dxKey, bool down);
+bool sfallCoopKeyHeld(Object* player, int dxKey);
 // HOOK_SETGLOBALVAR: returns the value to store.
 int sfallHookSetGlobalVar(int index, int value);
 

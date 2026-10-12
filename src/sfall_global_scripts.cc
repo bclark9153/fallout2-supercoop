@@ -10,6 +10,8 @@
 #include "platform_compat.h"
 #include "sfall_hooks.h"
 #include "scripts.h"
+#include "server_loop.h"
+#include "server_players.h"
 #include "sfall_config.h"
 
 namespace fallout {
@@ -21,12 +23,93 @@ struct GlobalScript {
     int count = 0;
     int mode = 0;
     bool once = true;
+
+    // Co-op (dedicated server). sfall global scripts were written for one
+    // player: their timers act on dude_obj. A PER-PLAYER script's timer runs
+    // once for every player in the world, as that player. Any other script's
+    // timer runs as its OWNER: the last player whose event (hook) made it change
+    // the world — so the player who became addicted is the one the addiction
+    // timer later shakes and relieves. No owner yet = the host, as before.
+    bool perPlayer = false;
+    int ownerActorId = -1;
 };
 
 struct GlobalScriptsState {
     std::vector<std::string> paths;
     std::vector<GlobalScript> globalScripts;
 };
+
+// Scripts whose repeating body only reads and writes "the player's" own state.
+// Overridable from ddraw.ini: [Coop] PerPlayerGlobalScripts=name,name,...
+static constexpr const char* kDefaultPerPlayerGlobalScripts = "gl_k_crippl,gl_k_fipswd";
+
+static bool sfall_gl_scr_name_in_list(const std::string& path, const char* list)
+{
+    // path is "scripts\\gl_k_crippl.int"; compare the bare name.
+    size_t slash = path.find_last_of("\\/");
+    std::string name = path.substr(slash == std::string::npos ? 0 : slash + 1);
+    size_t dot = name.find_last_of('.');
+    if (dot != std::string::npos) {
+        name.resize(dot);
+    }
+
+    const char* curr = list;
+    while (curr != nullptr && *curr != '\0') {
+        const char* end = strchr(curr, ',');
+        size_t len = end != nullptr ? static_cast<size_t>(end - curr) : strlen(curr);
+        while (len > 0 && (*curr == ' ' || *curr == '\t')) {
+            curr++;
+            len--;
+        }
+        while (len > 0 && (curr[len - 1] == ' ' || curr[len - 1] == '\t')) {
+            len--;
+        }
+        if (len == name.size() && compat_strnicmp(curr, name.c_str(), len) == 0) {
+            return true;
+        }
+        curr = end != nullptr ? end + 1 : nullptr;
+    }
+    return false;
+}
+
+// Runs one global script procedure the way a co-op world needs it (see
+// GlobalScript). Off a dedicated server this is a plain _executeProcedure.
+static void sfall_gl_scr_run_proc(GlobalScript& scr, int proc)
+{
+    if (!serverDedicatedActive() || playerActorCount() < 2) {
+        _executeProcedure(scr.program, proc);
+        return;
+    }
+
+    if (scr.perPlayer) {
+        // Snapshot the roster first: a timer body may change it (a death).
+        std::vector<Object*> actors;
+        for (int slot = 0; slot < playerActorCount(); slot++) {
+            Object* actor = playerActorAt(slot);
+            if (actor != nullptr && playerActorOnline(slot)) {
+                actors.push_back(actor);
+            }
+        }
+        for (Object* actor : actors) {
+            ServerActorScope scope(actor);
+            _executeProcedure(scr.program, proc);
+        }
+        return;
+    }
+
+    Object* owner = nullptr;
+    if (scr.ownerActorId != -1) {
+        for (int slot = 0; slot < playerActorCount(); slot++) {
+            Object* actor = playerActorAt(slot);
+            if (actor != nullptr && actor->id == scr.ownerActorId && playerActorOnline(slot)) {
+                owner = actor;
+                break;
+            }
+        }
+    }
+    ServerActorScope scope(owner); // null owner = no scope = the host
+    _executeProcedure(scr.program, proc);
+}
 
 static GlobalScriptsState* state = nullptr;
 
@@ -96,11 +179,17 @@ void sfall_gl_scr_exit()
 
 void sfall_gl_scr_exec_start_proc()
 {
+    char* perPlayerList = nullptr;
+    if (!configGetString(&gSfallConfig, "Coop", "PerPlayerGlobalScripts", &perPlayerList) || perPlayerList == nullptr) {
+        perPlayerList = const_cast<char*>(kDefaultPerPlayerGlobalScripts);
+    }
+
     for (auto& path : state->paths) {
         Program* program = programCreateByPath(path.c_str());
         if (program != nullptr) {
             GlobalScript scr;
             scr.program = program;
+            scr.perPlayer = sfall_gl_scr_name_in_list(path, perPlayerList);
 
             for (int action = 0; action < SCRIPT_PROC_COUNT; action++) {
                 scr.procs[action] = programFindProcedure(program, gScriptProcNames[action]);
@@ -146,7 +235,7 @@ static void sfall_gl_scr_process_simple(int mode1, int mode2, int frames = 1)
         if (scr.repeat != 0 && (scr.mode == mode1 || scr.mode == mode2)) {
             scr.count += frames;
             if (scr.count >= scr.repeat) {
-                _executeProcedure(scr.program, scr.procs[SCRIPT_PROC_START]);
+                sfall_gl_scr_run_proc(scr, scr.procs[SCRIPT_PROC_START]);
                 scr.count = 0;
             }
         }
@@ -212,6 +301,20 @@ void sfall_gl_scr_set_type(Program* program, int type)
     if (scr != nullptr) {
         scr->mode = type;
     }
+}
+
+void sfall_gl_scr_set_owner(Program* program, Object* actor)
+{
+    GlobalScript* scr = state != nullptr ? sfall_gl_scr_map_program_to_scr(program) : nullptr;
+    if (scr != nullptr && actor != nullptr && !scr->perPlayer) {
+        scr->ownerActorId = actor->id;
+    }
+}
+
+bool sfall_gl_scr_is_per_player(Program* program)
+{
+    GlobalScript* scr = state != nullptr ? sfall_gl_scr_map_program_to_scr(program) : nullptr;
+    return scr != nullptr && scr->perPlayer;
 }
 
 bool sfall_gl_scr_is_global(Program* program)

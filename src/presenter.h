@@ -216,6 +216,8 @@ public:
     // simulation is NOT parked waiting for the answer, and the ride happens later on
     // the verb. A player who closes the screen simply never rides.
     virtual void elevatorPrompt(int actorNetId, int elevator, int startLevel) {}
+    // sfall custom interface tags (5+) active for one player; addressed by netId.
+    virtual void ifaceTags(int actorNetId, const int* tags, int count) { }
     virtual void encounterClose() {}
 
     // Co-op AUTOMAP, addressed. The Motion Sensor is a real carryable item whose whole

@@ -268,6 +268,44 @@ static SDL_Scancode get_scancode_from_key(int key)
     return kDiks[key & 0xFF];
 }
 
+int sfall_kb_vk_from_dx(int key)
+{
+    SDL_Scancode scancode = get_scancode_from_key(key);
+    if (scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) {
+        return 'A' + (scancode - SDL_SCANCODE_A);
+    }
+    if (scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9) {
+        return '1' + (scancode - SDL_SCANCODE_1);
+    }
+    switch (scancode) {
+    case SDL_SCANCODE_0:
+        return '0';
+    case SDL_SCANCODE_SPACE:
+        return 0x20;
+    case SDL_SCANCODE_RETURN:
+        return 0x0D;
+    case SDL_SCANCODE_ESCAPE:
+        return 0x1B;
+    case SDL_SCANCODE_TAB:
+        return 0x09;
+    case SDL_SCANCODE_LSHIFT:
+    case SDL_SCANCODE_RSHIFT:
+        return 0x10;
+    case SDL_SCANCODE_LCTRL:
+    case SDL_SCANCODE_RCTRL:
+        return 0x11;
+    case SDL_SCANCODE_LALT:
+    case SDL_SCANCODE_RALT:
+        return 0x12;
+    default:
+        break;
+    }
+    if (scancode >= SDL_SCANCODE_F1 && scancode <= SDL_SCANCODE_F12) {
+        return 0x70 + (scancode - SDL_SCANCODE_F1);
+    }
+    return 0;
+}
+
 bool sfall_kb_is_key_pressed(int key)
 {
     SDL_Scancode scancode = get_scancode_from_key(key);

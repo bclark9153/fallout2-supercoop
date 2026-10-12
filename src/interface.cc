@@ -29,12 +29,16 @@
 #include "proto.h"
 #include "proto_instance.h"
 #include "proto_types.h"
+#include "sfall_config.h"
+#include "sfall_ext.h"
 #include "skill.h"
 #include "stat.h"
 #include "svga.h"
 #include "text_font.h"
 #include "tile.h"
 #include "window_manager.h"
+#include <algorithm>
+#include <vector>
 
 namespace fallout {
 
@@ -56,6 +60,9 @@ namespace fallout {
 // indicator types. In addition to that, default screen width 640px cannot hold
 // 6 boxes 130px each.
 #define INDICATOR_SLOTS_COUNT (6)
+
+// SFALL: extra slots for custom boxes (show_iface_tag 5+, BoxBarCount).
+#define INDICATOR_SLOTS_MAX (16)
 
 // The values of it's members are offsets to beginning of numbers in
 // numbers.frm.
@@ -232,7 +239,25 @@ static int gInterfaceLastRenderedArmorClass = 0;
 // Each slot contains one of indicators or -1 if slot is empty.
 //
 // 0x5970E0
-static int gIndicatorSlots[INDICATOR_SLOTS_COUNT];
+static int gIndicatorSlots[INDICATOR_SLOTS_MAX];
+
+// SFALL: custom indicator boxes (sfall tags 5..5+BoxBarCount-1). Indicator id
+// INDICATOR_COUNT + n draws custom box n. Titles are intrface.msg 105+n; a '1'
+// at position n of ddraw.ini [Misc] BoxBarColours draws it red.
+static constexpr int kFirstCustomTag = 5;
+static std::vector<IndicatorDescription> gCustomIndicatorDescriptions;
+
+static IndicatorDescription* indicatorDescriptionFor(int indicator)
+{
+    if (indicator >= 0 && indicator < INDICATOR_COUNT) {
+        return &(gIndicatorDescriptions[indicator]);
+    }
+    int custom = indicator - INDICATOR_COUNT;
+    if (custom >= 0 && custom < static_cast<int>(gCustomIndicatorDescriptions.size())) {
+        return &(gCustomIndicatorDescriptions[custom]);
+    }
+    return nullptr;
+}
 
 // 0x5970F8
 static InterfaceItemState gInterfaceItemStates[HAND_COUNT];
@@ -2294,6 +2319,36 @@ static int indicatorBarInit()
         fontDrawText(indicator->data + INDICATOR_BOX_WIDTH * y + x, text, INDICATOR_BOX_WIDTH, INDICATOR_BOX_WIDTH, color);
     }
 
+    // SFALL: BoxBarCount custom boxes, drawn the same way.
+    {
+        int customCount = 5;
+        configGetInt(&gSfallConfig, SFALL_CONFIG_MISC_KEY, "BoxBarCount", &customCount);
+        customCount = std::max(1, std::min(customCount, 95));
+        char* colors = nullptr;
+        configGetString(&gSfallConfig, SFALL_CONFIG_MISC_KEY, "BoxBarColours", &colors);
+
+        gCustomIndicatorDescriptions.clear();
+        for (int index = 0; index < customCount; index++) {
+            IndicatorDescription indicator;
+            indicator.title = 100 + kFirstCustomTag + index;
+            indicator.isBad = colors != nullptr && static_cast<int>(strlen(colors)) > index && colors[index] == '1';
+            indicator.data = (unsigned char*)internal_malloc(INDICATOR_BOX_WIDTH * INDICATOR_BOX_HEIGHT);
+            if (indicator.data == nullptr) {
+                break;
+            }
+            memcpy(indicator.data, indicatorBoxFrmImage.getData(), INDICATOR_BOX_WIDTH * INDICATOR_BOX_HEIGHT);
+
+            MessageListItem item;
+            item.num = indicator.title;
+            const char* title = messageListGetItem(&messageList, &item) ? item.text : "";
+            int color = indicator.isBad ? _colorTable[31744] : _colorTable[992];
+            int y = (24 - fontGetLineHeight()) / 2;
+            int x = std::max(0, (INDICATOR_BOX_WIDTH - fontGetStringWidth(title)) / 2);
+            fontDrawText(indicator.data + INDICATOR_BOX_WIDTH * y + x, title, INDICATOR_BOX_WIDTH - x, INDICATOR_BOX_WIDTH, color);
+            gCustomIndicatorDescriptions.push_back(indicator);
+        }
+    }
+
     gIndicatorBarIsVisible = true;
     indicatorBarRefresh();
 
@@ -2318,6 +2373,13 @@ static void interfaceBarFree()
             indicatorBoxDescription->data = nullptr;
         }
     }
+
+    for (auto& indicator : gCustomIndicatorDescriptions) {
+        if (indicator.data != nullptr) {
+            internal_free(indicator.data);
+        }
+    }
+    gCustomIndicatorDescriptions.clear();
 }
 
 // NOTE: This function is not referenced in the original code.
@@ -2339,7 +2401,7 @@ static void indicatorBarReset()
 int indicatorBarRefresh()
 {
     if (gInterfaceBarWindow != -1 && gIndicatorBarIsVisible && !gInterfaceBarHidden) {
-        for (int index = 0; index < INDICATOR_SLOTS_COUNT; index++) {
+        for (int index = 0; index < INDICATOR_SLOTS_MAX; index++) {
             gIndicatorSlots[index] = -1;
         }
 
@@ -2372,6 +2434,16 @@ int indicatorBarRefresh()
         if (critterGetRadiation(gDude) > RADATION_INDICATOR_THRESHOLD) {
             if (indicatorBarAdd(INDICATOR_RADIATED)) {
                 ++count;
+            }
+        }
+
+        // SFALL: custom boxes (show_iface_tag 5+) for this player.
+        for (int tag : sfallIfaceCustomTagsFor(gDude)) {
+            int custom = tag - kFirstCustomTag;
+            if (custom >= 0 && custom < static_cast<int>(gCustomIndicatorDescriptions.size())) {
+                if (indicatorBarAdd(INDICATOR_COUNT + custom)) {
+                    ++count;
+                }
             }
         }
 
@@ -2458,7 +2530,10 @@ static void indicatorBarRender(int count)
 
     for (int index = 0; index < count; index++) {
         int indicator = gIndicatorSlots[index];
-        IndicatorDescription* indicatorDescription = &(gIndicatorDescriptions[indicator]);
+        IndicatorDescription* indicatorDescription = indicatorDescriptionFor(indicator);
+        if (indicatorDescription == nullptr || indicatorDescription->data == nullptr) {
+            continue;
+        }
 
         blitBufferToBufferTrans(indicatorDescription->data + connectorWidthCompensation,
             INDICATOR_BOX_WIDTH - connectorWidthCompensation,
@@ -2482,7 +2557,7 @@ static void indicatorBarRender(int count)
 // 0x4616F0
 static bool indicatorBarAdd(int indicator)
 {
-    for (int index = 0; index < INDICATOR_SLOTS_COUNT; index++) {
+    for (int index = 0; index < INDICATOR_SLOTS_MAX; index++) {
         if (gIndicatorSlots[index] == -1) {
             gIndicatorSlots[index] = indicator;
             return true;

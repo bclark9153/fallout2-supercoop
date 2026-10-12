@@ -64,6 +64,7 @@
 #include "settings.h" // target_highlight pref — vanilla outline gate (#8)
 #include "stat.h" // pcPlayerActorSeedStats — per-actor sheet rows
 #include "critter.h" // critterPlayerActorSeedNames — per-actor sheet rows
+#include "sfall_ext.h"
 #include "skill.h" // skillsPlayerActorSeed — per-actor sheet rows
 #include "trait.h" // traitsPlayerActorSeed — per-actor sheet rows
 #include "text_object.h" // floating combat text (§3.e S2)
@@ -226,6 +227,7 @@ enum : unsigned char {
     EVENT_PARTY_WIPE = 68, // everyone is dead: death screen, then the server's reload
     EVENT_ENDGAME = 69, // the game is won: ending slides + credits, no reload follows
     EVENT_ACCOUNT_STATE = 70, // reply to our pre-join account query: (sessionId, known)
+    EVENT_IFACE_TAGS = 71, // sfall custom interface tags for one player (RP: crippled, ...)
 };
 
 // crc32 (IEEE, reflected) — MUST match server_loop.cc's joinBlobCrc32.
@@ -1255,6 +1257,7 @@ public:
         case EVENT_PARTY_WIPE: onPartyWipe(r); break;
         case EVENT_ENDGAME: onEndgame(r); break;
         case EVENT_ACCOUNT_STATE: onAccountState(r); break;
+        case EVENT_IFACE_TAGS: onIfaceTags(r); break;
         // SNAPSHOT_BEGIN/END are pure brackets; presentation cues are cosmetic and
         // ignored headless. All are skipped whole via the event length.
         default: break;
@@ -4508,6 +4511,22 @@ private:
     // clientViewerActive: it is asked on a throwaway connection before the viewer
     // exists, which is the whole point. Tagged with the asking session; anyone else's
     // answer is ignored.
+    // sfall custom interface tags (show_iface_tag 5+) for one player. Addressed:
+    // only our own actor's set is kept; the indicator bar repaints from it.
+    void onIfaceTags(Reader& r)
+    {
+        int actorNetId = r.i32();
+        int count = r.u16();
+        std::vector<int> tags;
+        for (int i = 0; i < count; i++) {
+            tags.push_back(r.i32());
+        }
+        if (r.overflow() || !clientViewerActive() || gDude == nullptr || actorNetId != gDude->netId) {
+            return;
+        }
+        sfallIfaceCustomTagsSet(gDude, tags.data(), static_cast<int>(tags.size()));
+    }
+
     void onAccountState(Reader& r)
     {
         int sessionId = r.i32();

@@ -2,6 +2,7 @@
 #define FALLOUT_SFALL_GLOBAL_SCRIPTS_H_
 
 #include "interpreter.h"
+#include "obj_types.h"
 
 namespace fallout {
 
@@ -20,6 +21,9 @@ void sfall_gl_scr_set_repeat(Program* program, int frames);
 void sfall_gl_scr_set_type(Program* program, int type);
 bool sfall_gl_scr_is_loaded(Program* program);
 bool sfall_gl_scr_is_global(Program* program);
+// Co-op: a hook run as |actor| changed the world; the script's timer now acts as |actor|.
+void sfall_gl_scr_set_owner(Program* program, Object* actor);
+bool sfall_gl_scr_is_per_player(Program* program);
 void sfall_gl_scr_update(int burstSize);
 
 } // namespace fallout

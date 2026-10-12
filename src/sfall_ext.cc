@@ -9,6 +9,12 @@
 #include "debug.h"
 #include "object.h"
 #include "platform_compat.h"
+#include <algorithm>
+#include "critter.h"
+#include "interface.h"
+#include "presenter.h"
+#include "server_loop.h"
+#include "server_players.h"
 
 namespace fallout {
 
@@ -19,8 +25,11 @@ bool gSfallRegAnimCombatCheck = true;
 static constexpr int kFirstCustomIfaceTag = 5;
 static constexpr int kMaxIfaceTag = 126;
 
+static constexpr int kRadiationTagThreshold = 65; // interface.cc RADATION_INDICATOR_THRESHOLD
+
 static std::unordered_set<int> gNoBurstCritterIds;
-static std::unordered_set<int> gActiveIfaceTags;
+// Custom tags per actor object id, ascending.
+static std::unordered_map<int, std::vector<int>> gCustomIfaceTags;
 static int gNextCustomIfaceTag = kFirstCustomIfaceTag;
 
 struct FakePerk {
@@ -44,7 +53,7 @@ void sfallExtReset()
 {
     gSfallRegAnimCombatCheck = true;
     gNoBurstCritterIds.clear();
-    gActiveIfaceTags.clear();
+    gCustomIfaceTags.clear();
     gNextCustomIfaceTag = kFirstCustomIfaceTag;
     gFakePerks.clear();
     gExtraMsgFiles.clear();
@@ -69,21 +78,142 @@ bool sfallCritterNoBurst(Object* critter)
     return critter != nullptr && !gNoBurstCritterIds.empty() && gNoBurstCritterIds.count(critter->id) != 0;
 }
 
+// sfall tags 0/3/4 are the player's own flags (proto critterFlags bits),
+// which the engine already keeps per player and streams with the sheet row.
+static int ifaceTagDudeState(int tag)
+{
+    switch (tag) {
+    case 0:
+        return DUDE_STATE_SNEAKING;
+    case 3:
+        return DUDE_STATE_LEVEL_UP_AVAILABLE;
+    case 4:
+        return DUDE_STATE_ADDICTED;
+    }
+    return -1;
+}
+
+static void ifaceTagsChanged(Object* actor)
+{
+    if (serverDedicatedActive()) {
+        const std::vector<int>& tags = sfallIfaceCustomTagsFor(actor);
+        presenter()->ifaceTags(actor->netId, tags.data(), static_cast<int>(tags.size()));
+    } else {
+        indicatorBarRefresh();
+    }
+}
+
 void sfallIfaceTagShow(int tag)
 {
-    if (tag >= 0 && tag <= kMaxIfaceTag) {
-        gActiveIfaceTags.insert(tag);
+    Object* actor = gDude;
+    if (actor == nullptr) {
+        return;
+    }
+
+    int state = ifaceTagDudeState(tag);
+    if (state != -1) {
+        if (!dudeHasState(state, actor)) {
+            dudeEnableState(state, actor);
+            if (!serverDedicatedActive()) {
+                indicatorBarRefresh();
+            }
+        }
+        return;
+    }
+
+    if (tag < kFirstCustomIfaceTag || tag > kMaxIfaceTag) {
+        return;
+    }
+
+    std::vector<int>& tags = gCustomIfaceTags[actor->id];
+    auto it = std::lower_bound(tags.begin(), tags.end(), tag);
+    if (it == tags.end() || *it != tag) {
+        tags.insert(it, tag);
+        ifaceTagsChanged(actor);
     }
 }
 
 void sfallIfaceTagHide(int tag)
 {
-    gActiveIfaceTags.erase(tag);
+    Object* actor = gDude;
+    if (actor == nullptr) {
+        return;
+    }
+
+    int state = ifaceTagDudeState(tag);
+    if (state != -1) {
+        if (dudeHasState(state, actor)) {
+            dudeDisableState(state, actor);
+            if (!serverDedicatedActive()) {
+                indicatorBarRefresh();
+            }
+        }
+        return;
+    }
+
+    auto entry = gCustomIfaceTags.find(actor->id);
+    if (entry == gCustomIfaceTags.end()) {
+        return;
+    }
+    auto it = std::lower_bound(entry->second.begin(), entry->second.end(), tag);
+    if (it != entry->second.end() && *it == tag) {
+        entry->second.erase(it);
+        ifaceTagsChanged(actor);
+    }
 }
 
 bool sfallIfaceTagActive(int tag)
 {
-    return gActiveIfaceTags.count(tag) != 0;
+    Object* actor = gDude;
+    if (actor == nullptr) {
+        return false;
+    }
+
+    int state = ifaceTagDudeState(tag);
+    if (state != -1) {
+        return dudeHasState(state, actor);
+    }
+    if (tag == 1) {
+        return critterGetPoison(actor) > 0;
+    }
+    if (tag == 2) {
+        return critterGetRadiation(actor) > kRadiationTagThreshold;
+    }
+
+    const std::vector<int>& tags = sfallIfaceCustomTagsFor(actor);
+    return std::binary_search(tags.begin(), tags.end(), tag);
+}
+
+const std::vector<int>& sfallIfaceCustomTagsFor(Object* actor)
+{
+    static const std::vector<int> kNone;
+    if (actor == nullptr) {
+        return kNone;
+    }
+    auto it = gCustomIfaceTags.find(actor->id);
+    return it != gCustomIfaceTags.end() ? it->second : kNone;
+}
+
+void sfallIfaceCustomTagsSet(Object* actor, const int* tags, int count)
+{
+    if (actor == nullptr) {
+        return;
+    }
+    std::vector<int> sorted(tags, tags + count);
+    std::sort(sorted.begin(), sorted.end());
+    gCustomIfaceTags[actor->id] = std::move(sorted);
+    indicatorBarRefresh();
+}
+
+void sfallIfaceCustomTagsEmitAll()
+{
+    for (int slot = 0; slot < playerActorCount(); slot++) {
+        Object* actor = playerActorAt(slot);
+        if (actor != nullptr) {
+            const std::vector<int>& tags = sfallIfaceCustomTagsFor(actor);
+            presenter()->ifaceTags(actor->netId, tags.data(), static_cast<int>(tags.size()));
+        }
+    }
 }
 
 int sfallIfaceTagAdd()

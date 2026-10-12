@@ -78,6 +78,7 @@
 #include "skill.h"
 #include "sfall_config.h"
 #include "sfall_global_scripts.h"
+#include "sfall_kb_helpers.h"
 #include "state_dump.h"
 #include "svga.h"
 #include "text_font.h"
@@ -89,6 +90,7 @@
 #include "word_wrap.h"
 #include "worldmap.h"
 #include "worldmap_ui.h"
+#include <SDL.h>
 
 namespace fallout {
 
@@ -1818,6 +1820,28 @@ static int mainClientViewer(const char* connectSpec)
             keyCode = -1; // swallow it: nothing below may act on a typed character
         }
         clientSayRender();
+
+        // ─── Keys for sfall HOOK_KEYPRESS (RP's Party Orders hotkeys) ───────────
+        // Global scripts run on the server, which has no keyboard: forward every
+        // key transition as `key <down> <dx> <vk>`. Presses are withheld while a
+        // text box or a conversation owns the keyboard (typing "hello" must not
+        // order the party around) and while the window is unfocused; releases
+        // always go out, so the server's held-key set can never stick.
+        {
+            static bool keyHeld[256] = {};
+            bool keyboardOwned = sayConsumedKey || clientSayActive() || clientDialogActive()
+                || SDL_GetKeyboardFocus() == nullptr;
+            for (int dx = 1; dx < 256; dx++) {
+                bool down = sfall_kb_is_key_pressed(dx);
+                if (down == keyHeld[dx] || (down && keyboardOwned)) {
+                    continue;
+                }
+                keyHeld[dx] = down;
+                char keyLine[48];
+                snprintf(keyLine, sizeof(keyLine), "key %d %d %d", down ? 1 : 0, dx, sfall_kb_vk_from_dx(dx));
+                conn.sendLine(keyLine);
+            }
+        }
 
         if (clientDialogActive()) {
             clientDialogHandleKey(keyCode);
