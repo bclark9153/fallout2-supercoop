@@ -1,4 +1,5 @@
 #include "proto_instance.h"
+#include "sfall_hooks.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -603,6 +604,12 @@ int _obj_pickup(Object* critter, Object* item)
 {
     bool overriden = false;
 
+    // SFALL: HOOK_INVENTORYMOVE, event 7 (player picks an item up). Anything
+    // but -1 cancels the pickup.
+    if (playerActorIs(critter) && sfallHookInventoryMove(7, item, nullptr) != -1) {
+        return -1;
+    }
+
     if (item->sid != -1) {
         scriptSetObjects(item->sid, critter, item);
         scriptExecProc(item->sid, SCRIPT_PROC_PICKUP);
@@ -1188,7 +1195,11 @@ static int _protinstTestDroppedExplosive(Object* explosiveItem)
 // 0x49C124
 int _obj_use_item(Object* a1, Object* a2)
 {
-    int rc = _protinst_use_item(a1, a2);
+    // SFALL: HOOK_USEOBJ (-1 = engine handler).
+    int rc = sfallHookUseObj(a1, a2);
+    if (rc == -1) {
+        rc = _protinst_use_item(a1, a2);
+    }
     if (rc == 1 || rc == 2) {
         Object* root = objectGetOwner(a2);
         if (root != nullptr) {
@@ -1429,7 +1440,11 @@ int _protinst_use_item_on(Object* critter, Object* targetObj, Object* item)
 // 0x49C5FC
 int _obj_use_item_on(Object* user, Object* targetObj, Object* item)
 {
-    int rc = _protinst_use_item_on(user, targetObj, item);
+    // SFALL: HOOK_USEOBJON (-1 = engine handler).
+    int rc = sfallHookUseObjOn(targetObj, user, item);
+    if (rc == -1) {
+        rc = _protinst_use_item_on(user, targetObj, item);
+    }
 
     if (rc == 1) {
         if (user != nullptr) {

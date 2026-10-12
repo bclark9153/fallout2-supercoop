@@ -1,4 +1,5 @@
 #include "server_worldmap.h"
+#include "sfall_global_scripts.h"
 
 #include <cstdio>
 #include <vector>
@@ -274,6 +275,9 @@ int worldmapServerDriver()
             // Same fix, same reason, as the wmtravel probe (command.cc).
             simClockAdvance(kServerTickDelta);
             unsigned int now = simClockNow();
+
+            // SFALL: WorldmapLoopHook (serverTick is parked while travelling).
+            sfall_gl_scr_process_worldmap_frames(kServerBeatFrames);
 
             int worldX = wmGenData.worldPosX;
             int worldY = wmGenData.worldPosY;

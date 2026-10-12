@@ -416,6 +416,20 @@ public:
         assert(false && "This method is not used for associative arrays thus it is not implemented");
     }
 
+    // Native helper (get_ini_section): add/replace a string -> string pair.
+    void SetStringPair(const char* key, const char* value)
+    {
+        auto keyEl = ArrayElement { key };
+        auto it = std::find_if(pairs.begin(), pairs.end(), [&keyEl](const KeyValuePair& pair) -> bool {
+            return pair.key == keyEl;
+        });
+        if (it != pairs.end()) {
+            it->value = ArrayElement { value };
+        } else if (size() < ARRAY_MAX_SIZE) {
+            pairs.push_back(KeyValuePair { std::move(keyEl), ArrayElement { value } });
+        }
+    }
+
     void ResizeArray(int newLen)
     {
         if (newLen == -1 || size() == newLen) {
@@ -712,6 +726,22 @@ ArrayId StringSplit(const char* str, const char* split)
         }
     }
     return arrayId;
+}
+
+void SetArrayAssocString(ArrayId arrayId, const char* key, const char* value)
+{
+    auto arr = dynamic_cast<SFallArrayAssoc*>(get_array_by_id(arrayId));
+    if (arr != nullptr) {
+        arr->SetStringPair(key, value);
+    }
+}
+
+void SetArrayIndexString(ArrayId arrayId, int index, const char* value)
+{
+    auto arr = get_array_by_id(arrayId);
+    if (arr != nullptr && index >= 0 && index < arr->size()) {
+        arr->SetArray(ProgramValue { index }, ArrayElement { value }, false);
+    }
 }
 
 } // namespace fallout

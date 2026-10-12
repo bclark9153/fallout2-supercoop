@@ -1,4 +1,6 @@
 #include "game.h"
+#include "sfall_ext.h"
+#include "sfall_hooks.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -333,6 +335,7 @@ void gameResetSim()
     sfallListsReset();
     messageListRepositoryReset();
     sfallArraysReset();
+    sfallExtReset();
     sfall_gl_scr_reset();
 }
 
@@ -497,12 +500,21 @@ int GameMode::currentGameMode = 0;
 
 void GameMode::enterGameMode(int gameMode)
 {
+    int previousMode = currentGameMode;
     currentGameMode |= gameMode;
+    // SFALL: HOOK_GAMEMODECHANGE
+    if (currentGameMode != previousMode) {
+        sfallHookGameModeChange(0, previousMode);
+    }
 }
 
 void GameMode::exitGameMode(int gameMode)
 {
+    int previousMode = currentGameMode;
     currentGameMode &= ~gameMode;
+    if (currentGameMode != previousMode) {
+        sfallHookGameModeChange(0, previousMode);
+    }
 }
 
 bool GameMode::isInGameMode(int gameMode)

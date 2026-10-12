@@ -84,6 +84,30 @@ void sfall_ini_set_base_path(const char* path)
     }
 }
 
+// Load a whole ini the way get_ini_setting resolves it: IniConfigFolder first
+// (unless it is one of the system configs), then the working directory.
+bool sfall_ini_load(const char* fileName, Config* config)
+{
+    if (!configInit(config)) {
+        return false;
+    }
+
+    char path[COMPAT_MAX_PATH];
+    if (basePath[0] != '\0' && !is_system_file_name(fileName)) {
+        snprintf(path, sizeof(path), "%s\\%s", basePath, fileName);
+        if (configRead(config, path, false)) {
+            return true;
+        }
+    }
+
+    if (configRead(config, fileName, false)) {
+        return true;
+    }
+
+    configFree(config);
+    return false;
+}
+
 bool sfall_ini_get_int(const char* triplet, int* value)
 {
     char string[20];

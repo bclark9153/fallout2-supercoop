@@ -32,6 +32,8 @@ Object* _inven_index_ptr(Object* obj, int index);
 // Makes critter equip a given item in a given hand slot with an animation.
 // 0 - left hand, 1 - right hand. If item is armor, hand value is ignored.
 int _inven_wield(Object* critter, Object* item, int hand);
+bool inventoryWieldHook(Object* critter, Object* item, int hand);
+bool inventoryUnwieldHook(Object* critter, int hand);
 // Same as inven_wield but allows to wield item without animation.
 int _invenWieldFunc(Object* critter, Object* item, int hand, bool animate);
 // Which hand this critter is holding up (HAND_LEFT / HAND_RIGHT). A player actor on a

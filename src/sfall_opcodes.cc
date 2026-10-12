@@ -1,6 +1,10 @@
 #include "sfall_opcodes.h"
 
+#include <ctype.h>
+#include <math.h>
 #include <string.h>
+
+#include <string>
 
 #include "animation.h"
 #include "art.h"
@@ -22,6 +26,8 @@
 #include "proto.h"
 #include "scripts.h"
 #include "sfall_arrays.h"
+#include "sfall_ext.h"
+#include "sfall_hooks.h"
 #include "sfall_global_scripts.h"
 #include "sfall_global_vars.h"
 #include "sfall_ini.h"
@@ -1042,6 +1048,328 @@ static void op_div(Program* program)
     }
 }
 
+// ---------------------------------------------------------------------------
+// Opcodes added for Restoration Project compatibility (sfall 4.x semantics).
+// ---------------------------------------------------------------------------
+
+static bool sfallIsCritter(Object* obj)
+{
+    return obj != nullptr && PID_TYPE(obj->pid) == OBJ_TYPE_CRITTER;
+}
+
+// set_critter_base_stat
+static void op_set_critter_base_stat(Program* program)
+{
+    int value = programStackPopInteger(program);
+    int stat = programStackPopInteger(program);
+    Object* obj = static_cast<Object*>(programStackPopPointer(program));
+    if (!sfallIsCritter(obj) || !statIsValid(stat)) {
+        debugPrint("%s: set_critter_base_stat: bad critter or stat %d\n", program->name, stat);
+        return;
+    }
+    critterSetBaseStat(obj, stat, value);
+}
+
+// set_critter_extra_stat
+static void op_set_critter_extra_stat(Program* program)
+{
+    int value = programStackPopInteger(program);
+    int stat = programStackPopInteger(program);
+    Object* obj = static_cast<Object*>(programStackPopPointer(program));
+    if (!sfallIsCritter(obj) || !statIsValid(stat)) {
+        debugPrint("%s: set_critter_extra_stat: bad critter or stat %d\n", program->name, stat);
+        return;
+    }
+    critterSetBonusStat(obj, stat, value);
+}
+
+// get_critter_base_stat
+static void op_get_critter_base_stat(Program* program)
+{
+    int stat = programStackPopInteger(program);
+    Object* obj = static_cast<Object*>(programStackPopPointer(program));
+    int value = 0;
+    if (sfallIsCritter(obj) && statIsValid(stat)) {
+        value = critterGetBaseStat(obj, stat);
+    }
+    programStackPushInteger(program, value);
+}
+
+// get_critter_extra_stat
+static void op_get_critter_extra_stat(Program* program)
+{
+    int stat = programStackPopInteger(program);
+    Object* obj = static_cast<Object*>(programStackPopPointer(program));
+    int value = 0;
+    if (sfallIsCritter(obj) && statIsValid(stat)) {
+        value = critterGetBonusStat(obj, stat);
+    }
+    programStackPushInteger(program, value);
+}
+
+// set_fake_perk
+static void op_set_fake_perk(Program* program)
+{
+    const char* desc = programStackPopString(program);
+    int image = programStackPopInteger(program);
+    int level = programStackPopInteger(program);
+    const char* name = programStackPopString(program);
+    sfallSetFakePerk(name, level, image, desc);
+}
+
+// show_iface_tag
+static void op_show_iface_tag(Program* program)
+{
+    sfallIfaceTagShow(programStackPopInteger(program));
+}
+
+// hide_iface_tag
+static void op_hide_iface_tag(Program* program)
+{
+    sfallIfaceTagHide(programStackPopInteger(program));
+}
+
+// is_iface_tag_active
+static void op_is_iface_tag_active(Program* program)
+{
+    int tag = programStackPopInteger(program);
+    programStackPushInteger(program, sfallIfaceTagActive(tag) ? 1 : 0);
+}
+
+// fs_copy
+static void op_fs_copy(Program* program)
+{
+    const char* source = programStackPopString(program);
+    const char* path = programStackPopString(program);
+    programStackPushInteger(program, sfallFsCopy(path, source));
+}
+
+// fs_find
+static void op_fs_find(Program* program)
+{
+    const char* path = programStackPopString(program);
+    programStackPushInteger(program, sfallFsFind(path));
+}
+
+// fs_write_byte / fs_write_short / fs_write_int
+static void op_fs_write_byte(Program* program)
+{
+    int value = programStackPopInteger(program);
+    int id = programStackPopInteger(program);
+    sfallFsWriteByte(id, value);
+}
+
+static void op_fs_write_short(Program* program)
+{
+    int value = programStackPopInteger(program);
+    int id = programStackPopInteger(program);
+    sfallFsWriteShort(id, value);
+}
+
+static void op_fs_write_int(Program* program)
+{
+    int value = programStackPopInteger(program);
+    int id = programStackPopInteger(program);
+    sfallFsWriteInt(id, value);
+}
+
+// fs_size / fs_pos / fs_seek
+static void op_fs_size(Program* program)
+{
+    programStackPushInteger(program, sfallFsSize(programStackPopInteger(program)));
+}
+
+static void op_fs_pos(Program* program)
+{
+    programStackPushInteger(program, sfallFsPos(programStackPopInteger(program)));
+}
+
+static void op_fs_seek(Program* program)
+{
+    int pos = programStackPopInteger(program);
+    int id = programStackPopInteger(program);
+    sfallFsSeek(id, pos);
+}
+
+// fs_read_byte / fs_read_short / fs_read_int
+static void op_fs_read_byte(Program* program)
+{
+    programStackPushInteger(program, sfallFsReadByte(programStackPopInteger(program)));
+}
+
+static void op_fs_read_short(Program* program)
+{
+    programStackPushInteger(program, sfallFsReadShort(programStackPopInteger(program)));
+}
+
+static void op_fs_read_int(Program* program)
+{
+    programStackPushInteger(program, sfallFsReadInt(programStackPopInteger(program)));
+}
+
+// set_hero_style / refresh_pc_art: sfall's Hero Appearance mod. The engine has
+// no appearance system, so the default hero art stays; accept and log.
+static void op_set_hero_style(Program* program)
+{
+    int style = programStackPopInteger(program);
+    debugPrint("%s: set_hero_style(%d) ignored (no hero appearance support)\n", program->name, style);
+}
+
+static void op_set_hero_race(Program* program)
+{
+    int race = programStackPopInteger(program);
+    debugPrint("%s: set_hero_race(%d) ignored (no hero appearance support)\n", program->name, race);
+}
+
+static void op_refresh_pc_art(Program* program)
+{
+}
+
+// set_critter_burst_disable
+static void op_set_critter_burst_disable(Program* program)
+{
+    int disable = programStackPopInteger(program);
+    Object* critter = static_cast<Object*>(programStackPopPointer(program));
+    sfallSetCritterNoBurst(critter, disable != 0);
+}
+
+// sprintf(format, value): sfall's single-argument formatter.
+static void op_sprintf(Program* program)
+{
+    ProgramValue value = programStackPopValue(program);
+    const char* format = programStackPopString(program);
+
+    std::string out;
+    bool consumed = false;
+    const char* p = format;
+    while (*p != '\0') {
+        if (*p != '%') {
+            out += *p++;
+            continue;
+        }
+        if (p[1] == '%') {
+            out += '%';
+            p += 2;
+            continue;
+        }
+
+        const char* start = p++;
+        std::string spec = "%";
+        while (*p != '\0' && strchr("-+ #0", *p) != nullptr) {
+            spec += *p++;
+        }
+        while (*p != '\0' && isdigit(static_cast<unsigned char>(*p))) {
+            spec += *p++;
+        }
+        if (*p == '.') {
+            spec += *p++;
+            while (*p != '\0' && isdigit(static_cast<unsigned char>(*p))) {
+                spec += *p++;
+            }
+        }
+        while (*p != '\0' && strchr("hlLqjzt", *p) != nullptr) {
+            p++; // length modifiers are meaningless here; values are 32-bit.
+        }
+        char conv = *p;
+        if (conv == '\0') {
+            out += start;
+            break;
+        }
+        p++;
+
+        if (consumed) {
+            out.append(start, static_cast<size_t>(p - start));
+            continue;
+        }
+        consumed = true;
+
+        char buf[512];
+        buf[0] = '\0';
+        switch (conv) {
+        case 's': {
+            std::string text;
+            if (value.isString()) {
+                text = programGetString(program, value.opcode, value.integerValue);
+            } else if (value.isFloat()) {
+                snprintf(buf, sizeof(buf), "%f", value.asFloat());
+                text = buf;
+            } else {
+                text = std::to_string(value.asInt());
+            }
+            spec += 's';
+            snprintf(buf, sizeof(buf), spec.c_str(), text.c_str());
+            break;
+        }
+        case 'f':
+        case 'F':
+        case 'e':
+        case 'E':
+        case 'g':
+        case 'G':
+        case 'a':
+        case 'A':
+            spec += conv;
+            snprintf(buf, sizeof(buf), spec.c_str(), static_cast<double>(value.asFloat()));
+            break;
+        case 'c':
+        case 'd':
+        case 'i':
+        case 'u':
+        case 'x':
+        case 'X':
+        case 'o':
+            spec += conv;
+            snprintf(buf, sizeof(buf), spec.c_str(), value.isString() ? 0 : value.asInt());
+            break;
+        default:
+            snprintf(buf, sizeof(buf), "%s", std::string(start, static_cast<size_t>(p - start)).c_str());
+            break;
+        }
+        out += buf;
+    }
+
+    programStackPushString(program, const_cast<char*>(out.c_str()));
+}
+
+// reg_anim_combat_check(0) lets reg_anim_* run during combat.
+static void op_reg_anim_combat_check(Program* program)
+{
+    gSfallRegAnimCombatCheck = programStackPopInteger(program) != 0;
+}
+
+// ceil / floor2
+static void op_ceil(Program* program)
+{
+    ProgramValue value = programStackPopValue(program);
+    programStackPushInteger(program, static_cast<int>(ceilf(value.asFloat())));
+}
+
+// path_find_to(obj, tile, blocking_type) -> temp array of rotations.
+PathBuilderCallback* get_blocking_func(int type);
+
+static void op_path_find_to(Program* program)
+{
+    int type = programStackPopInteger(program);
+    int tile = programStackPopInteger(program);
+    Object* obj = static_cast<Object*>(programStackPopPointer(program));
+
+    unsigned char rotations[800];
+    int length = 0;
+    if (obj != nullptr) {
+        int checkFlag = PID_TYPE(obj->pid) == OBJ_TYPE_CRITTER ? 1 : 0;
+        length = pathfinderFindPath(obj, obj->tile, tile, rotations, checkFlag, get_blocking_func(type));
+        if (length < 0) {
+            length = 0;
+        }
+    }
+
+    ArrayId arrayId = CreateTempArray(length, 0);
+    for (int index = 0; index < length; index++) {
+        SetArray(arrayId, ProgramValue { index }, ProgramValue { static_cast<int>(rotations[index]) }, false, program);
+    }
+    programStackPushInteger(program, static_cast<int>(arrayId));
+}
+
 void sfallOpcodesInit()
 {
     interpreterRegisterOpcode(0x8156, opReadByte);
@@ -1127,6 +1455,35 @@ void sfallOpcodesInit()
     interpreterRegisterOpcode(0x827B, op_sfall_func5);
     interpreterRegisterOpcode(0x827C, op_sfall_func6);
     interpreterRegisterOpcode(0x827F, op_div);
+    // RP compatibility (sfall 4.x).
+    interpreterRegisterOpcode(0x815E, op_set_critter_base_stat);
+    interpreterRegisterOpcode(0x815F, op_set_critter_extra_stat);
+    interpreterRegisterOpcode(0x8160, op_get_critter_base_stat);
+    interpreterRegisterOpcode(0x8161, op_get_critter_extra_stat);
+    interpreterRegisterOpcode(0x81BB, op_set_fake_perk);
+    interpreterRegisterOpcode(0x81DC, op_show_iface_tag);
+    interpreterRegisterOpcode(0x81DD, op_hide_iface_tag);
+    interpreterRegisterOpcode(0x81DE, op_is_iface_tag_active);
+    interpreterRegisterOpcode(0x81F8, op_fs_copy);
+    interpreterRegisterOpcode(0x81F9, op_fs_find);
+    interpreterRegisterOpcode(0x81FA, op_fs_write_byte);
+    interpreterRegisterOpcode(0x81FB, op_fs_write_short);
+    interpreterRegisterOpcode(0x81FC, op_fs_write_int);
+    interpreterRegisterOpcode(0x8200, op_fs_size);
+    interpreterRegisterOpcode(0x8201, op_fs_pos);
+    interpreterRegisterOpcode(0x8202, op_fs_seek);
+    interpreterRegisterOpcode(0x8209, op_fs_read_byte);
+    interpreterRegisterOpcode(0x820A, op_fs_read_short);
+    interpreterRegisterOpcode(0x820B, op_fs_read_int);
+    interpreterRegisterOpcode(0x8215, op_set_hero_style);
+    interpreterRegisterOpcode(0x8214, op_set_hero_race);
+    interpreterRegisterOpcode(0x8216, op_set_critter_burst_disable);
+    interpreterRegisterOpcode(0x8227, op_refresh_pc_art);
+    interpreterRegisterOpcode(0x8250, op_sprintf);
+    interpreterRegisterOpcode(0x825C, op_reg_anim_combat_check);
+    interpreterRegisterOpcode(0x8266, op_ceil);
+    interpreterRegisterOpcode(0x8272, op_path_find_to);
+    sfallHooksRegisterOpcodes();
 }
 
 void sfallOpcodesExit()

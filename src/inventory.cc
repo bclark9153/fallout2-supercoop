@@ -1,4 +1,5 @@
 #include "inventory.h"
+#include "sfall_hooks.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -363,7 +364,39 @@ Object* _inven_index_ptr(Object* obj, int index)
 // 0x472758
 int _inven_wield(Object* critter, Object* item, int hand)
 {
+    if (!inventoryWieldHook(critter, item, hand)) {
+        return -1;
+    }
     return _invenWieldFunc(critter, item, hand, true);
+}
+
+// SFALL: HOOK_INVENWIELD for a wield. sfall's slot argument is INVEN_TYPE_*:
+// 0 worn, 1 right hand, 2 left hand. Returns false when a script overrode it.
+bool inventoryWieldHook(Object* critter, Object* item, int hand)
+{
+    if (item == nullptr) {
+        return true;
+    }
+    int slot = itemGetType(item) == ITEM_TYPE_ARMOR ? 0 : (hand == HAND_RIGHT ? 1 : 2);
+    return sfallHookInvenWield(critter, item, slot, true, false);
+}
+
+// SFALL: HOOK_INVENWIELD for an unwield of a hand slot.
+bool inventoryUnwieldHook(Object* critter, int hand)
+{
+    if (!sfallHookHasScripts(SFALL_HOOK_INVENWIELD)) {
+        return true;
+    }
+    // sfall: a critter's right hand is its only active slot; the player's
+    // non-active hand does not fire.
+    if (hand == HAND_LEFT && !playerActorIs(critter)) {
+        return true;
+    }
+    if (playerActorIs(critter) && hand != invenActiveHandFor(critter)) {
+        return true;
+    }
+    Object* item = hand == HAND_RIGHT ? critterGetItem2(critter) : critterGetItem1(critter);
+    return sfallHookInvenWield(critter, item, hand == HAND_RIGHT ? 1 : 2, false, false);
 }
 
 // 0x472768
@@ -616,6 +649,9 @@ int _invenWieldFunc(Object* critter, Object* item, int handIndex, bool animate)
 // 0x472A54
 int _inven_unwield(Object* critter_obj, int hand)
 {
+    if (!inventoryUnwieldHook(critter_obj, hand)) {
+        return -1;
+    }
     return _invenUnwieldFunc(critter_obj, hand, true);
 }
 

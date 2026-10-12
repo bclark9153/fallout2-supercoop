@@ -1,4 +1,5 @@
 #include "item.h"
+#include "sfall_hooks.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -3491,7 +3492,9 @@ bool itemDropStack(Object* owner, Object* item, int quantity)
 // Returns true when the drug was consumed.
 bool itemUseDrug(Object* user, Object* owner, Object* item, bool inventoryResident)
 {
-    bool taken = _item_d_take_drug(user, item) != 0;
+    // SFALL: HOOK_USEOBJON for drugs taken from the inventory (target = user).
+    int hookResult = sfallHookUseObjOn(user, user, item);
+    bool taken = hookResult != -1 ? hookResult != 0 : _item_d_take_drug(user, item) != 0;
     if (taken) {
         if (inventoryResident) {
             itemRemove(owner, item, 1);
@@ -3515,11 +3518,18 @@ int itemUseFromInventory(Object* user, Object* owner, Object* item, bool invento
         itemRemove(owner, item, 1);
     }
 
+    // SFALL: HOOK_USEOBJ / HOOK_USEOBJON (-1 = engine handler).
     int useResult;
     if (_obj_action_can_use(item)) {
-        useResult = _protinst_use_item(user, item);
+        useResult = sfallHookUseObj(user, item);
+        if (useResult == -1) {
+            useResult = _protinst_use_item(user, item);
+        }
     } else {
-        useResult = _protinst_use_item_on(user, user, item);
+        useResult = sfallHookUseObjOn(user, user, item);
+        if (useResult == -1) {
+            useResult = _protinst_use_item_on(user, user, item);
+        }
     }
 
     if (useResult == 1) {

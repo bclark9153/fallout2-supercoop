@@ -1,4 +1,5 @@
 #include "combat.h"
+#include "sfall_hooks.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -128,6 +129,7 @@ static int attackComputeCriticalFailure(Attack* attack);
 static void _do_random_cripple(int* flagsPtr);
 static int attackDetermineToHit(Object* attacker, int tile, Object* defender, int hitLocation, int hitMode, bool useDistance);
 static void attackComputeDamage(Attack* attack, int ammoQuantity, int a3);
+static void attackComputeDamageEngine(Attack* attack, int ammoQuantity, int a3);
 static void _check_for_death(Object* a1, int a2, int* a3);
 static void _set_new_results(Object* a1, int a2);
 static void _damage_object(Object* a1, int damage, bool animated, int a4, Object* a5);
@@ -5759,7 +5761,14 @@ static int attackDetermineToHit(Object* attacker, int tile, Object* defender, in
 }
 
 // 0x4247B8
+// SFALL: HOOK_COMBATDAMAGE runs after the engine computed the damage.
 static void attackComputeDamage(Attack* attack, int ammoQuantity, int bonusDamageMultiplier)
+{
+    attackComputeDamageEngine(attack, ammoQuantity, bonusDamageMultiplier);
+    sfallHookCombatDamage(attack, ammoQuantity, bonusDamageMultiplier);
+}
+
+static void attackComputeDamageEngine(Attack* attack, int ammoQuantity, int bonusDamageMultiplier)
 {
     int* damagePtr;
     Object* critter;

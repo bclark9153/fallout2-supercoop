@@ -1,4 +1,6 @@
 #include "combat_ai.h"
+#include "sfall_hooks.h"
+#include "sfall_ext.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -131,6 +133,7 @@ static bool aiHaveAmmo(Object* critter, Object* weapon, Object** ammoPtr);
 static bool _caiHasWeapPrefType(AiPacket* ai, int attackType);
 static Object* _ai_best_weapon(Object* a1, Object* a2, Object* a3, Object* a4);
 static bool _ai_can_use_weapon(Object* critter, Object* weapon, int hitMode);
+static bool _ai_can_use_weapon_engine(Object* critter, Object* weapon, int hitMode);
 static bool aiCanUseItem(Object* obj, Object* a2);
 static Object* _ai_search_environ(Object* critter, int itemType);
 static Object* _ai_retrieve_object(Object* critter, Object* item);
@@ -1997,7 +2000,13 @@ static Object* _ai_best_weapon(Object* attacker, Object* weapon1, Object* weapon
 }
 
 // 0x4298EC
+// SFALL: HOOK_CANUSEWEAPON wraps every AI "can I use this weapon" check.
 static bool _ai_can_use_weapon(Object* critter, Object* weapon, int hitMode)
+{
+    return sfallHookCanUseWeapon(_ai_can_use_weapon_engine(critter, weapon, hitMode), critter, weapon, hitMode);
+}
+
+static bool _ai_can_use_weapon_engine(Object* critter, Object* weapon, int hitMode)
 {
     int damageFlags = critter->data.critter.combat.results;
     if ((damageFlags & DAM_CRIP_ARM_LEFT) != 0 && (damageFlags & DAM_CRIP_ARM_RIGHT) != 0) {
@@ -2310,8 +2319,18 @@ static int _ai_pick_hit_mode(Object* attacker, Object* weapon, Object* defender)
         return HIT_MODE_PUNCH;
     }
 
-    if (ai->area_attack_mode != -1) {
-        switch (ai->area_attack_mode) {
+    int areaAttackMode = ai->area_attack_mode;
+    // SFALL: set_critter_burst_disable — a burst/continuous secondary mode is
+    // treated as an unknown area_attack_mode, i.e. never chosen.
+    if (sfallCritterNoBurst(attacker)) {
+        int anim = weaponGetAnimationForHitMode(weapon, HIT_MODE_RIGHT_WEAPON_SECONDARY);
+        if (anim == ANIM_FIRE_BURST || anim == ANIM_FIRE_CONTINUOUS) {
+            areaAttackMode = 10;
+        }
+    }
+
+    if (areaAttackMode != -1) {
+        switch (areaAttackMode) {
         case AREA_ATTACK_MODE_ALWAYS:
             useSecondaryMode = true;
             break;

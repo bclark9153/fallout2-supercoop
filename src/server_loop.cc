@@ -1,4 +1,5 @@
 #include "server_loop.h"
+#include "sfall_global_scripts.h"
 
 #include <climits> // INT_MAX — an absent damage cap, see the CombatStartData note below
 #include <cstring>
@@ -576,6 +577,8 @@ void serverTick(int tick, const std::function<void(int)>& intentsDrain, bool adv
     }
     simClockAdvance(kServerTickDelta);
     _process_bk();
+    // SFALL: MainLoopHook — run the global scripts whose repeat timer is due.
+    sfall_gl_scr_process_main_frames(kServerBeatFrames);
     // ─── Companion follow heartbeat (bugs/027) ──────────────────────────────
     // Out of combat, a companion only moves because its critter_p_proc measures
     // the distance to its leader and orders a run - and the engine services

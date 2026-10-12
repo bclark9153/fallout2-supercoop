@@ -2235,7 +2235,9 @@ static int _partyMemberCopyLevelInfo(Object* critter, int stagePid)
     }
 
     Object* item2 = critterGetItem2(critter);
-    _invenUnwieldFunc(critter, 1, 0);
+    if (inventoryUnwieldHook(critter, HAND_RIGHT)) {
+        _invenUnwieldFunc(critter, 1, 0);
+    }
 
     Object* armor = critterGetArmor(critter);
     _adjust_ac(critter, armor, nullptr);
@@ -2266,7 +2268,9 @@ static int _partyMemberCopyLevelInfo(Object* critter, int stagePid)
     if (item2 != nullptr) {
         // SFALL: Fix for party member's equipped weapon being placed in the
         // incorrect item slot after leveling up.
-        _invenWieldFunc(critter, item2, HAND_RIGHT, false);
+        if (inventoryWieldHook(critter, item2, HAND_RIGHT)) {
+            _invenWieldFunc(critter, item2, HAND_RIGHT, false);
+        }
     }
 
     return 0;

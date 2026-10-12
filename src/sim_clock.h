@@ -18,6 +18,10 @@ namespace fallout {
 // the >=100 game-clock gate fire every tick (gGameTime +1/tick out of combat).
 constexpr unsigned int kServerTickDelta = 100;
 
+// sfall counts global-script repeat intervals in frames of the client's
+// 60 fps loop; one server beat stands for this many.
+constexpr int kServerBeatFrames = static_cast<int>(kServerTickDelta * 60 / 1000);
+
 // Current sim time (a file-static gSimNow, starts at 0).
 unsigned int simClockNow();
 

@@ -1,6 +1,7 @@
 #include "dfile.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -198,12 +199,38 @@ bool dbaseClose(DBase* dbase)
     return true;
 }
 
+// DAT entry paths are uppercase with '\' separators, and game code passes
+// patterns like "scripts\gl*.int". fpattern on non-Windows is case-sensitive,
+// uses '/' as the separator and treats '\' as an escape, so normalise both
+// sides first (Windows builds match case-insensitively already).
+static bool dbaseEntryMatches(const char* pattern, const char* path)
+{
+#if defined(_WIN32)
+    return fpattern_match(pattern, path);
+#else
+    char normalizedPattern[COMPAT_MAX_PATH];
+    char normalizedPath[COMPAT_MAX_PATH];
+    size_t index;
+    for (index = 0; pattern[index] != '\0' && index < sizeof(normalizedPattern) - 1; index++) {
+        char ch = pattern[index] == '\\' ? '/' : pattern[index];
+        normalizedPattern[index] = static_cast<char>(tolower(static_cast<unsigned char>(ch)));
+    }
+    normalizedPattern[index] = '\0';
+    for (index = 0; path[index] != '\0' && index < sizeof(normalizedPath) - 1; index++) {
+        char ch = path[index] == '\\' ? '/' : path[index];
+        normalizedPath[index] = static_cast<char>(tolower(static_cast<unsigned char>(ch)));
+    }
+    normalizedPath[index] = '\0';
+    return fpattern_match(normalizedPattern, normalizedPath);
+#endif
+}
+
 // 0x4E5308
 bool dbaseFindFirstEntry(DBase* dbase, DFileFindData* findFileData, const char* pattern)
 {
     for (int index = 0; index < dbase->entriesLength; index++) {
         DBaseEntry* entry = &(dbase->entries[index]);
-        if (fpattern_match(pattern, entry->path)) {
+        if (dbaseEntryMatches(pattern, entry->path)) {
             strcpy(findFileData->fileName, entry->path);
             strcpy(findFileData->pattern, pattern);
             findFileData->index = index;
@@ -219,7 +246,7 @@ bool dbaseFindNextEntry(DBase* dbase, DFileFindData* findFileData)
 {
     for (int index = findFileData->index + 1; index < dbase->entriesLength; index++) {
         DBaseEntry* entry = &(dbase->entries[index]);
-        if (fpattern_match(findFileData->pattern, entry->path)) {
+        if (dbaseEntryMatches(findFileData->pattern, entry->path)) {
             strcpy(findFileData->fileName, entry->path);
             findFileData->index = index;
             return true;

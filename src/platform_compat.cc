@@ -205,7 +205,8 @@ void compat_makepath(char* path, const char* drive, const char* dir, const char*
 
             if (path[-1] == '/') {
                 path--;
-            } else {
+            } else if (path[-1] != '\\') {
+                // A game-style dir ("scripts\\") already ends in a separator.
                 *path = '/';
             }
         }

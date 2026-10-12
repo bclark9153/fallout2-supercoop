@@ -1,4 +1,6 @@
 #include "interpreter_extra.h"
+#include "sfall_hooks.h"
+#include "sfall_ext.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -1331,6 +1333,11 @@ static void opSetGlobalVar(Program* program)
 {
     ProgramValue value = programStackPopValue(program);
     int variable = programStackPopInteger(program);
+
+    // SFALL: HOOK_SETGLOBALVAR may override an integer write.
+    if (value.opcode != VALUE_TYPE_PTR && sfallHookHasScripts(SFALL_HOOK_SETGLOBALVAR)) {
+        value = ProgramValue(sfallHookSetGlobalVar(variable, value.asInt()));
+    }
 
     // F2_TRACE_GVAR=<index>: name the script that writes this global, and what it
     // wrote. Investigation aid for "who moves gvar N on load" -- fprintf, not
@@ -3897,7 +3904,7 @@ static void opRegAnimFunc(Program* program)
     ProgramValue param = programStackPopValue(program);
     int cmd = programStackPopInteger(program);
 
-    if (!isInCombat()) {
+    if (!isInCombat() || !gSfallRegAnimCombatCheck) {
         switch (cmd) {
         case OP_REG_ANIM_FUNC_BEGIN:
             gScriptSequenceLastAnim.clear();
@@ -3925,7 +3932,7 @@ static void opRegAnimAnimate(Program* program)
     int anim = programStackPopInteger(program);
     Object* object = static_cast<Object*>(programStackPopPointer(program));
 
-    if (!isInCombat()) {
+    if (!isInCombat() || !gSfallRegAnimCombatCheck) {
         if (anim != 20 || object == nullptr || object->pid != 0x100002F || (settings.preferences.violence_level >= 2)) {
             if (object != nullptr) {
                 animationRegisterAnimate(object, anim, delay);
@@ -3945,7 +3952,7 @@ static void opRegAnimAnimateReverse(Program* program)
     int anim = programStackPopInteger(program);
     Object* object = static_cast<Object*>(programStackPopPointer(program));
 
-    if (!isInCombat()) {
+    if (!isInCombat() || !gSfallRegAnimCombatCheck) {
         if (object != nullptr) {
             animationRegisterAnimateReversed(object, anim, delay);
             scriptSequenceNoteAnim(object, anim, delay, true);
@@ -3963,7 +3970,7 @@ static void opRegAnimObjectMoveToObject(Program* program)
     Object* dest = static_cast<Object*>(programStackPopPointer(program));
     Object* object = static_cast<Object*>(programStackPopPointer(program));
 
-    if (!isInCombat()) {
+    if (!isInCombat() || !gSfallRegAnimCombatCheck) {
         if (object != nullptr) {
             animationRegisterMoveToObject(object, dest, -1, delay);
             gScriptSequenceMixed = true;
@@ -3981,7 +3988,7 @@ static void opRegAnimObjectRunToObject(Program* program)
     Object* dest = static_cast<Object*>(programStackPopPointer(program));
     Object* object = static_cast<Object*>(programStackPopPointer(program));
 
-    if (!isInCombat()) {
+    if (!isInCombat() || !gSfallRegAnimCombatCheck) {
         if (object != nullptr) {
             animationRegisterRunToObject(object, dest, -1, delay);
             gScriptSequenceMixed = true;
@@ -3999,7 +4006,7 @@ static void opRegAnimObjectMoveToTile(Program* program)
     int tile = programStackPopInteger(program);
     Object* object = static_cast<Object*>(programStackPopPointer(program));
 
-    if (!isInCombat()) {
+    if (!isInCombat() || !gSfallRegAnimCombatCheck) {
         if (object != nullptr) {
             animationRegisterMoveToTile(object, tile, object->elevation, -1, delay);
             gScriptSequenceMixed = true;
@@ -4017,7 +4024,7 @@ static void opRegAnimObjectRunToTile(Program* program)
     int tile = programStackPopInteger(program);
     Object* object = static_cast<Object*>(programStackPopPointer(program));
 
-    if (!isInCombat()) {
+    if (!isInCombat() || !gSfallRegAnimCombatCheck) {
         if (object != nullptr) {
             animationRegisterRunToTile(object, tile, object->elevation, -1, delay);
             gScriptSequenceMixed = true;
@@ -4424,7 +4431,7 @@ static void opRegAnimAnimateForever(Program* program)
     int anim = programStackPopInteger(program);
     Object* obj = static_cast<Object*>(programStackPopPointer(program));
 
-    if (!isInCombat()) {
+    if (!isInCombat() || !gSfallRegAnimCombatCheck) {
         if (obj != nullptr) {
             animationRegisterAnimateForever(obj, anim, -1);
             gScriptSequenceMixed = true;

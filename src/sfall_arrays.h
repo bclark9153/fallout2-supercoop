@@ -30,6 +30,10 @@ ArrayId ListAsArray(int type);
 
 ArrayId StringSplit(const char* str, const char* split);
 
+// Native helpers for building arrays from engine data.
+void SetArrayAssocString(ArrayId arrayId, const char* key, const char* value);
+void SetArrayIndexString(ArrayId arrayId, int index, const char* value);
+
 } // namespace fallout
 
 #endif /* FALLOUT_SFALL_ARRAYS_H_ */

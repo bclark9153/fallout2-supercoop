@@ -8,6 +8,7 @@
 #include "db.h"
 #include "input.h"
 #include "platform_compat.h"
+#include "sfall_hooks.h"
 #include "scripts.h"
 #include "sfall_config.h"
 
@@ -118,6 +119,9 @@ void sfall_gl_scr_remove_all()
 {
     tickersRemove(sfall_gl_scr_process_input);
 
+    // Hook registrations point at these programs.
+    sfallHooksReset();
+
     for (auto& scr : state->globalScripts) {
         programFree(scr.program);
     }
@@ -136,11 +140,11 @@ void sfall_gl_scr_exec_map_update_scripts(int action)
     }
 }
 
-static void sfall_gl_scr_process_simple(int mode1, int mode2)
+static void sfall_gl_scr_process_simple(int mode1, int mode2, int frames = 1)
 {
     for (auto& scr : state->globalScripts) {
         if (scr.repeat != 0 && (scr.mode == mode1 || scr.mode == mode2)) {
-            scr.count++;
+            scr.count += frames;
             if (scr.count >= scr.repeat) {
                 _executeProcedure(scr.program, scr.procs[SCRIPT_PROC_START]);
                 scr.count = 0;
@@ -162,6 +166,22 @@ void sfall_gl_scr_process_input()
 void sfall_gl_scr_process_worldmap()
 {
     sfall_gl_scr_process_simple(2, 3);
+}
+
+// Dedicated server: one beat stands for |frames| rendered frames of the
+// client's loop (sfall counts set_global_script_repeat in frames).
+void sfall_gl_scr_process_main_frames(int frames)
+{
+    if (state != nullptr) {
+        sfall_gl_scr_process_simple(0, 3, frames);
+    }
+}
+
+void sfall_gl_scr_process_worldmap_frames(int frames)
+{
+    if (state != nullptr) {
+        sfall_gl_scr_process_simple(2, 3, frames);
+    }
 }
 
 static GlobalScript* sfall_gl_scr_map_program_to_scr(Program* program)
@@ -192,6 +212,11 @@ void sfall_gl_scr_set_type(Program* program, int type)
     if (scr != nullptr) {
         scr->mode = type;
     }
+}
+
+bool sfall_gl_scr_is_global(Program* program)
+{
+    return state != nullptr && sfall_gl_scr_map_program_to_scr(program) != nullptr;
 }
 
 bool sfall_gl_scr_is_loaded(Program* program)

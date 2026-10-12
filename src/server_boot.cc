@@ -1,4 +1,5 @@
 #include "server_boot.h"
+#include "sfall_ini.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -265,6 +266,14 @@ static int serverInitSubsystems(int argc, char** argv)
         debugPrint("server-boot: sfall_gl_scr_init failed\n");
         return -1;
     }
+
+    // Mirror the client (game_lifecycle.cc): sfall's IniConfigFolder is where
+    // get_ini_setting/get_ini_section look first. The Restoration Project
+    // keeps its mod configs in mods\, so without this every RP global script
+    // read defaults on the server.
+    char* customConfigBasePath = nullptr;
+    configGetString(&gSfallConfig, SFALL_CONFIG_SCRIPTS_KEY, SFALL_CONFIG_INI_CONFIG_FOLDER, &customConfigBasePath);
+    sfall_ini_set_base_path(customConfigBasePath);
 
     messageListRepositorySetStandardMessageList(STANDARD_MESSAGE_LIST_MISC, &gMiscMessageList);
 
@@ -537,6 +546,11 @@ int serverBootNewWorld(const char* mapName)
     }
 
     serverBootSweepDoors();
+
+    // SFALL: AfterNewGameStartHook — the client runs every global script's
+    // start procedure right after a new game's first map (main.cc). A loaded
+    // world gets the same call from lsgLoadGameInSlot.
+    sfall_gl_scr_exec_start_proc();
     return 0;
 }
 
