@@ -15,8 +15,8 @@ YOU NEED
 INSTALL (everyone)
 1. Extract this zip anywhere.
 2. Double-click install.cmd and answer its questions (Enter takes the
-   default). It finds your Fallout 2, builds a separate co-op folder next to
-   it, installs the Restoration Project and makes two desktop shortcuts.
+   default). It finds your Fallout 2, builds a separate co-op folder (default:
+   Games\Fallout 2 SuperCoop on the same drive), installs the Restoration Project and makes two desktop shortcuts.
    Your original game is not touched.
 
 HOST

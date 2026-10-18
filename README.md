@@ -11,7 +11,7 @@ SuperCoop is built on [fallout2-coop](https://github.com/gusmarcum/fallout2-coop
 You need Fallout 2 from **Steam or GOG** (US 1.02d), Windows 10/11 64-bit, and about 2 GB free.
 
 1. Download the latest `Fallout2-SuperCoop-<version>-windows.zip` from [Releases](../../releases) and extract it anywhere.
-2. Double-click **`install.cmd`**. It finds your Fallout 2, builds a separate co-op folder next to it, downloads the Restoration Project 2.4.34 from [its official release](https://github.com/BGforgeNet/Fallout2_Restoration_Project/releases/tag/v2.4.34) and checks it, picks a screen mode for your monitor, and makes two desktop shortcuts. Your original game is only read, never changed.
+2. Double-click **`install.cmd`**. It finds your Fallout 2, builds a separate co-op folder (by default `Games\Fallout 2 SuperCoop` on the same drive), downloads the Restoration Project 2.4.34 from [its official release](https://github.com/BGforgeNet/Fallout2_Restoration_Project/releases/tag/v2.4.34) and checks it, picks a screen mode for your monitor, and makes two desktop shortcuts. Your original game is only read, never changed.
 3. **Host:** run *Fallout 2 SuperCoop - Host*, press Enter for a new game, then run *Fallout 2 SuperCoop - Join* with the address left empty.
    **Join:** run *Fallout 2 SuperCoop - Join* and enter the host's address.
 

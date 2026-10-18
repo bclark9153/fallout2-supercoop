@@ -192,7 +192,8 @@ if ((Test-Path -LiteralPath $exe) -and ((Get-Item -LiteralPath $exe).Length -ne 
 # --- 2. Where the co-op world goes -----------------------------------------------
 Step "Choosing the co-op folder"
 if (-not $Target) {
-    $Target = Join-Path (Split-Path -Parent $GameDir) "Fallout 2 SuperCoop"
+    # Same drive as the game (it is ~1.5 GB), but not inside a Steam/GOG library.
+    $Target = Join-Path ([System.IO.Path]::GetPathRoot($GameDir)) "Games\Fallout 2 SuperCoop"
     $Target = Ask "Install the co-op world to" $Target
 }
 $Target = [System.IO.Path]::GetFullPath($Target)

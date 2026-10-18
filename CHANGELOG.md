@@ -5,6 +5,11 @@ earlier entries are fallout2-coop's, on
 [its releases page](https://github.com/gusmarcum/fallout2-coop/releases). The server and every
 client must run the same version.
 
+## SuperCoop v0.1.1 (2026-10-18)
+
+- The installer's default co-op folder is now `Games\Fallout 2 SuperCoop` on the game's
+  drive instead of next to the game (inside a Steam library).
+
 ## SuperCoop v0.1.0 (2026-10-18)
 
 First SuperCoop release: fallout2-coop v1.4.2 plus the Restoration Project 2.4.34.
