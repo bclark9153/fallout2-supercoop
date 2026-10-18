@@ -9,6 +9,7 @@
 #include <stack>
 
 #include "art.h"
+#include "client_net.h"
 #include "color.h"
 #include "config.h"
 #include "debug.h"
@@ -67,6 +68,21 @@ static bool tileScrollLeashUnlocked()
         return value == nullptr || value[0] != '0';
     }();
     return unlocked;
+}
+
+// Scroll BLOCKERS (the invisible pid 0x500000C markers map designers placed) are
+// ignored by a co-op client's camera. They were placed for a 640x480 view and stop
+// a wider, scaled view short of rooms it should be able to look at (the Arroyo
+// temple's north corridor). The map-edge border still applies, so the camera never
+// pans into the void. Camera only: a client's view changes nothing in the world,
+// and the server keeps vanilla rules. Kill switch: F2_SCROLL_BLOCKERS=1 restores them.
+static bool tileScrollBlockersIgnored()
+{
+    static const bool keepBlockers = []() {
+        const char* value = getenv("F2_SCROLL_BLOCKERS");
+        return value != nullptr && value[0] != '\0' && value[0] != '0';
+    }();
+    return !keepBlockers && clientViewerActive();
 }
 
 // 0x51D95C
@@ -466,7 +482,7 @@ int tileSetCenter(int tile, int flags)
             }
         }
 
-        if (gTileScrollBlockingEnabled) {
+        if (gTileScrollBlockingEnabled && !tileScrollBlockersIgnored()) {
             if (_obj_scroll_blocking_at(tile, gElevation) == 0) {
                 return -1;
             }

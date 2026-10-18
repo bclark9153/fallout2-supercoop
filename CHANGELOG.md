@@ -5,6 +5,13 @@ earlier entries are fallout2-coop's, on
 [its releases page](https://github.com/gusmarcum/fallout2-coop/releases). The server and every
 client must run the same version.
 
+## SuperCoop v0.1.3 (2026-10-18)
+
+- The camera is no longer stopped by the maps' invisible scroll blockers, which were
+  placed for a 640x480 view and kept a scaled, wider view from looking into nearby rooms
+  (for example north in the Arroyo temple). It still stops at the map edge. Client view
+  only; `F2_SCROLL_BLOCKERS=1` restores the original behaviour.
+
 ## SuperCoop v0.1.2 (2026-10-18)
 
 ### Added
