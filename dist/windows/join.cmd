@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 rem ===========================================================================
-rem  Fallout 2 Co-op: join a game
+rem  Fallout 2 SuperCoop: join a game
 rem
 rem  Put this file and fallout2-ce.exe in your Fallout 2 folder, next to
 rem  master.dat, and double-click it. The first time, it asks for your name and
@@ -14,9 +14,11 @@ rem ===========================================================================
 
 rem Game port used when the address has no :port on the end.
 if not defined F2_COOP_PORT set "F2_COOP_PORT=9300"
+rem Client log for troubleshooting: debug.log next to this file. Remove to turn off.
+if not defined DEBUGACTIVE set "DEBUGACTIVE=log"
 
 cd /d "%~dp0"
-title Fallout 2 Co-op
+title Fallout 2 SuperCoop
 
 if not exist "%~dp0fallout2-ce.exe" (
     echo fallout2-ce.exe is not in this folder.

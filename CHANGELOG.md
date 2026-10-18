@@ -1,8 +1,36 @@
 # Changelog
 
-Binaries for every version are on the
-[releases page](https://github.com/gusmarcum/fallout2-coop/releases). The server and every
+SuperCoop releases are on [this repository's releases page](https://github.com/bclark9153/fallout2-supercoop/releases);
+earlier entries are fallout2-coop's, on
+[its releases page](https://github.com/gusmarcum/fallout2-coop/releases). The server and every
 client must run the same version.
+
+## SuperCoop v0.1.0 (2026-10-18)
+
+First SuperCoop release: fallout2-coop v1.4.2 plus the Restoration Project 2.4.34.
+
+### Added
+- One-click Windows installer (`install.cmd`): finds a Steam/GOG Fallout 2, builds a
+  separate co-op folder, downloads RP 2.4.34 and checks its SHA-256, sets the screen
+  mode for the monitor, makes Host/Join desktop shortcuts, optionally adds a firewall
+  rule. Re-running it updates an install and keeps the saves.
+- sfall data loading: `mods\mods_order.txt`, sfall's load order, extra world-map areas,
+  `IniConfigFolder` on the server.
+- sfall opcodes and metarules used by RP, Party Orders, NPC Armor and sfall's scripts.
+- sfall hooks: COMBATDAMAGE, USEOBJ, USEOBJON, INVENWIELD, CANUSEWEAPON, INVENTORYMOVE
+  (pickup), GAMEMODECHANGE, SETGLOBALVAR, KEYPRESS.
+- Global scripts on the server: started on new worlds, timers run every beat and
+  during world-map travel.
+- Co-op for those scripts: hooks run as the player involved; per-player and
+  owner-following timers (`[Coop] PerPlayerGlobalScripts` in ddraw.ini); per-player
+  interface tags drawn on each client (new wire event 71); client key relay
+  (`key` verb) with per-player held keys.
+- Launchers write `f2_server-debug.log` / `debug.log` for troubleshooting.
+
+### Fixed
+- A script stack overrun (RP's NCR box script outside NCR) no longer kills the server.
+- A critter above its maximum HP is clamped and logged instead of stopping the server.
+- Linux/macOS: global scripts inside DAT files are found; sfall paths keep their folder.
 
 ## v1.4.2 (2026-10-03)
 

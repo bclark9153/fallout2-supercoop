@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 rem ===========================================================================
-rem  Fallout 2 Co-op: start the server
+rem  Fallout 2 SuperCoop: start the server
 rem
 rem  Put this file, f2_server.exe and fallout2-ce.exe in a COPY of your
 rem  Fallout 2 folder, next to master.dat, and double-click it. That folder is
@@ -16,15 +16,18 @@ rem  Game port that players join. join.cmd assumes 9300 unless the address
 rem  it is given ends in :port.
 if not defined F2_COOP_PORT set "F2_COOP_PORT=9300"
 rem  Name shown to players when they connect.
-set "SERVER_NAME=Fallout 2 Co-op"
+set "SERVER_NAME=Fallout 2 SuperCoop"
 rem  Admin console: off. It has no password and listens on every network, so
 rem  anyone who can reach its port controls the world. To use it yourself,
 rem  remove "rem" from the next line, and never forward that port.
 rem set "F2_SERVER_CMD=9301"
+rem  Engine log for troubleshooting: f2_server-debug.log next to this file,
+rem  rewritten on every start. Set to 0 to turn it off.
+if not defined F2_SERVER_DEBUG_LOG set "F2_SERVER_DEBUG_LOG=1"
 rem ---------------------------------------------------------------------------
 
 cd /d "%~dp0"
-title Fallout 2 Co-op server
+title Fallout 2 SuperCoop server
 
 if not exist "%~dp0f2_server.exe" (
     echo f2_server.exe is not in this folder.
@@ -123,7 +126,7 @@ set "F2_SERVER_PACE_MS=100"
 set "F2_AUTOSAVE_SECS=300"
 set "F2_SERVER_KEEPALIVE=1"
 set "F2_SERVER_NAME=%SERVER_NAME%"
-title Fallout 2 Co-op server - port %F2_COOP_PORT%
+title Fallout 2 SuperCoop server - port %F2_COOP_PORT%
 echo.
 echo ============================================================================
 echo  Fallout 2 Co-op server: %WHAT%, port %F2_COOP_PORT%

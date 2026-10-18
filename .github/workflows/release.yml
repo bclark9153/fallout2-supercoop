@@ -1,0 +1,76 @@
+name: Release
+
+# Push a tag like v0.2.0 (matching dist/windows/VERSION.txt) to build the
+# Windows binaries, package the installer zip and publish a GitHub release.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows package
+
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+
+      - name: MSYS2 toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            git
+            zip
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-win -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_EXE_LINKER_FLAGS="-static -static-libgcc -static-libstdc++" \
+            -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_C_FLAGS=-std=gnu17
+
+      - name: Build
+        run: |
+          cmake --build build-win --target f2_server fallout2-ce -j 4
+
+      - name: Check version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          want="$(head -n1 dist/windows/VERSION.txt | tr -d '\r\n ')"
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$want" != "$tag" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match dist/windows/VERSION.txt ($want)" >&2
+            exit 1
+          fi
+
+      - name: Package
+        run: |
+          scripts/package-windows.sh build-win out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supercoop-windows
+          path: out/*.zip
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.zip
+          generate_release_notes: true

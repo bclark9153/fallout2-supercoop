@@ -1,34 +1,51 @@
-Fallout 2 Co-op v1.4.2 (https://github.com/gusmarcum/fallout2-coop)
+Fallout 2 SuperCoop - quick start
+=================================
 
-You need your own Fallout 2 (Steam or GOG, US 1.02d) and Windows 10 or 11,
-64-bit. Everyone must run the same release of this project with identical game
-files.
+Play Fallout 2 with the Restoration Project, together. One PC runs a server
+that owns the world; everyone (the host too) joins it with their own
+character.
+
+YOU NEED
+- Fallout 2 from Steam or GOG (US 1.02d), installed.
+- Windows 10 or 11, 64-bit.
+- About 2 GB of free disk space. The installer downloads the Restoration
+  Project (827 MB) unless you put rpu_v2.4.34.zip next to install.cmd.
+- For playing over the internet: a VPN such as ZeroTier or Tailscale.
+
+INSTALL (everyone)
+1. Extract this zip anywhere.
+2. Double-click install.cmd and answer its questions (Enter takes the
+   default). It finds your Fallout 2, builds a separate co-op folder next to
+   it, installs the Restoration Project and makes two desktop shortcuts.
+   Your original game is not touched.
 
 HOST
-1. Copy your Fallout 2 folder somewhere new, for example D:\Games\Fallout2Coop.
-   That copy is the co-op world. Use it for co-op only: never start the
-   original game from it.
-2. Extract this zip into that folder, next to master.dat.
-3. Double-click start-server.cmd. The first time, press Enter for a new game.
-   After that, Enter continues the newest co-op save.
-4. Double-click join.cmd, pick your character name, and leave the address
-   empty.
+1. Double-click "Fallout 2 SuperCoop - Host". First time: press Enter for a
+   new game at the Temple of Trials. After that, Enter continues the newest
+   save. Leave this window open.
+2. Double-click "Fallout 2 SuperCoop - Join", pick a character name and
+   leave the address empty.
+3. Give your friends your VPN address (ZeroTier/Tailscale IP).
 
-OTHER PLAYERS
-Extract this zip into your own Fallout 2 folder, double-click join.cmd, pick
-your character name, and enter the host's address (for example their ZeroTier
-IP). Your answers are saved in join-settings.cmd; delete it to change them.
+JOIN
+Double-click "Fallout 2 SuperCoop - Join", pick a character name (the same
+one every time - it IS your character) and enter the host's address.
 
-Your name is your character: use the same one every time, and a different one
-from your friends. Letters, digits, - and _ only.
+UPDATING
+Extract the new version and run install.cmd again, pointing at the same
+co-op folder. It replaces the program files and keeps your saves.
+Everyone in a game must run the same version.
 
-Keys: T chat, TAB automap, F6/F7 quicksave/quickload (rewinds everyone),
-click a player to trade, Use on a dead player to revive them.
-Cutscenes play for everyone; the first player to skip one ends it for all.
-Experience is shared: every award pays every connected player in full.
+KEYS
+T chat - TAB automap - F6/F7 quicksave/quickload (rewinds everyone) -
+talk to a player to trade - use a dead player to revive them.
+Restoration Project Party Orders: H holster, F heal, G loot, R regroup,
+X spread out, Ctrl+B ammo type (T is chat in co-op; rebind its pick-up key
+in mods\party_orders.ini).
 
-Play over a VPN such as ZeroTier. Never forward the game port (9300) to the
-internet. If a friend can't connect, check that Windows Firewall on the host
-allows f2_server.exe. Windows may warn about an unsigned exe the first time:
-More info, then Run anyway.
-To stop the server, press F6 in game to quicksave, then close the server window.
+SAFETY
+Never forward port 9300 to the internet: the game has no password. Use a VPN.
+To stop the server: press F6 in game to quicksave, then close the server window.
+
+TROUBLESHOOTING
+Logs: f2_server-debug.log (server) and debug.log (client) in the co-op folder.
