@@ -1,7 +1,9 @@
 name: Release
 
-# Push a tag like v0.2.0 (matching dist/windows/VERSION.txt) to build the
-# Windows binaries, package the installer zip and publish a GitHub release.
+# Builds the Windows binaries, packages the installer zip and publishes a
+# GitHub release named after dist/windows/VERSION.txt. Either push a tag like
+# v0.2.0 (it must match VERSION.txt), or run this workflow by hand from the
+# Actions tab: it then creates the v<VERSION.txt> tag on the chosen branch.
 
 on:
   push:
@@ -48,15 +50,15 @@ jobs:
         run: |
           cmake --build build-win --target f2_server fallout2-ce -j 4
 
-      - name: Check version
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Version
+        id: version
         run: |
           want="$(head -n1 dist/windows/VERSION.txt | tr -d '\r\n ')"
-          tag="${GITHUB_REF_NAME#v}"
-          if [ "$want" != "$tag" ]; then
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$want" ]; then
             echo "Tag $GITHUB_REF_NAME does not match dist/windows/VERSION.txt ($want)" >&2
             exit 1
           fi
+          echo "tag=v$want" >> "$GITHUB_OUTPUT"
 
       - name: Package
         run: |
@@ -69,8 +71,10 @@ jobs:
           path: out/*.zip
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Fallout 2 SuperCoop ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          body_path: dist/windows/RELEASE_NOTES.md
           files: out/*.zip
-          generate_release_notes: true
