@@ -2,7 +2,7 @@ name: fallout2
 
 services:
   fo2-dedicated-server:
-    image: fo2-dedicated-server:${F2_IMAGE_TAG:-latest}
+    image: ghcr.io/bclark9153/fallout2-supercoop-server:${F2_IMAGE_TAG:-latest}
     build:
       context: "${F2_SOURCE_PATH:-.}"
       dockerfile: Dockerfile
@@ -17,8 +17,8 @@ services:
         required: false
     environment:
       # Container ports stay fixed; the corresponding host ports are configurable below.
-      F2_SERVER_NET: "9200"
-      F2_SERVER_CMD: "9201"
+      F2_SERVER_NET: "9300"
+      F2_SERVER_CMD: "9301"
       F2_SERVER_KEEPALIVE: "1"
       F2_SERVER_PACE_MS: "${F2_SERVER_PACE_MS:-100}"
       F2_AUTOSAVE_SECS: "${F2_AUTOSAVE_SECS:-300}"
@@ -26,9 +26,9 @@ services:
       F2_GAME_DIFFICULTY: "${F2_GAME_DIFFICULTY:-2}"
       F2_COMBAT_DIFFICULTY: "${F2_COMBAT_DIFFICULTY:-2}"
     ports:
-      - "${F2_SERVER_NET_BIND:-0.0.0.0}:${F2_SERVER_NET_PORT:-9200}:9200/tcp"
+      - "${F2_SERVER_NET_BIND:-0.0.0.0}:${F2_SERVER_NET_PORT:-9300}:9300/tcp"
       # The admin channel is unrestricted, so expose it on localhost by default.
-      - "${F2_SERVER_CMD_BIND:-127.0.0.1}:${F2_SERVER_CMD_PORT:-9201}:9201/tcp"
+      - "${F2_SERVER_CMD_BIND:-127.0.0.1}:${F2_SERVER_CMD_PORT:-9301}:9301/tcp"
     volumes:
       # The server reads the licensed assets and persists data/SAVEGAME + data/MAPS here.
       - type: bind

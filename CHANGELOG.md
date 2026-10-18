@@ -5,6 +5,20 @@ earlier entries are fallout2-coop's, on
 [its releases page](https://github.com/gusmarcum/fallout2-coop/releases). The server and every
 client must run the same version.
 
+## SuperCoop v0.1.2 (2026-10-18)
+
+### Added
+- Server image on GitHub Container Registry: `ghcr.io/bclark9153/fallout2-supercoop-server`
+  (`latest` and the version), built by the Release workflow.
+- Unraid container template (`dist/unraid/fallout2-supercoop.xml`) and README instructions.
+- `F2_SERVER_LOAD=newest`: continue the most recently written save, or start a new game on
+  `F2_SERVER_MAP` (default `artemple.map`) when there is none. The image's default, so
+  container restarts keep the world.
+
+### Changed
+- The Docker image and Compose use port 9300 (admin 9301), matching the Windows launchers,
+  and the image sets keep-alive, real-time pace and a 5-minute autosave by default.
+
 ## SuperCoop v0.1.1 (2026-10-18)
 
 - The installer's default co-op folder is now `Games\Fallout 2 SuperCoop` on the game's

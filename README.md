@@ -19,6 +19,17 @@ Play over a VPN such as ZeroTier or Tailscale. Never forward the game port (9300
 
 Updating: extract the new release and run `install.cmd` again on the same co-op folder. It replaces the program files and keeps your saves.
 
+## Run the server on Unraid or Docker
+
+The host doesn't have to keep a game window open: the same server runs headless in a container, so the world stays up while players come and go. Each release publishes `ghcr.io/bclark9153/fallout2-supercoop-server` (a single static binary, no game data inside).
+
+1. Install SuperCoop on a Windows PC as above, then copy the whole **Fallout 2 SuperCoop** folder to the server, for example to `/mnt/user/appdata/fallout2-supercoop` on Unraid. Players need the same data, so copy it rather than building one by hand. Copying your existing saves along with it is fine.
+2. **Unraid:** save [`dist/unraid/fallout2-supercoop.xml`](dist/unraid/fallout2-supercoop.xml) as `/boot/config/plugins/dockerMan/templates-user/my-fallout2-supercoop.xml`, then *Docker → Add Container →* pick **fallout2-supercoop** from the template list and apply. It runs as `nobody:users` (99:100), so make the folder writable for it: `chown -R 99:100 /mnt/user/appdata/fallout2-supercoop`.
+   **Any Docker host:** `cp .env.example .env`, set `F2_GAME_PATH`, `F2_UID` and `F2_GID`, then `docker compose up -d`. Details in [DOCKER.md](DOCKER.md).
+3. Players run *Fallout 2 SuperCoop - Join* and enter the server's address (port 9300).
+
+On every start the server continues the newest save, or starts a new game when there is none, and it autosaves every five minutes, so restarting or updating the container keeps your world. Reach it over ZeroTier or Tailscale (both are Unraid plugins); don't forward 9300 to the internet. Keep the image version and the players' Windows release the same: use the `:<version>` tag instead of `:latest` if you update them separately.
+
 ## What SuperCoop adds
 
 **Restoration Project support**
@@ -46,7 +57,7 @@ Updating: extract the new release and run `install.cmd` again on the same co-op 
 
 ## Building
 
-Same as upstream: see [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md#building-on-windows) (MSYS2 on Windows) or [DEDICATED_HOWTO.md](DEDICATED_HOWTO.md) (Linux, Docker). `scripts/package-windows.sh <dir with the two exes>` builds the release zip; pushing a `v*` tag builds and publishes it from CI.
+Same as upstream: see [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md#building-on-windows) (MSYS2 on Windows) or [DEDICATED_HOWTO.md](DEDICATED_HOWTO.md) (Linux, Docker). `scripts/package-windows.sh <dir with the two exes>` builds the release zip; the Release workflow (a `v*` tag, or run it by hand) builds the zip and the server image and publishes both.
 
 ## Credits
 

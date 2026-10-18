@@ -10,22 +10,27 @@ userspace. The licensed game installation is bind-mounted at runtime.
 cp .env.example .env
 ```
 
-Edit `.env` and set `F2_GAME_PATH` to the absolute path of the Fallout 2
-installation. It must contain at least `master.dat`, `critter.dat`, `patch000.dat`,
-and `data`. On Linux, also set `F2_UID` and `F2_GID` to the output of `id -u` and
+Edit `.env` and set `F2_GAME_PATH` to the absolute path of a copy of your
+installed **Fallout 2 SuperCoop** folder (the one `install.cmd` built on Windows:
+it holds `master.dat`, `critter.dat`, `mods`, `data` and the Restoration Project).
+Every player must have the same data, so copy the folder rather than assembling
+one by hand. On Linux, also set `F2_UID` and `F2_GID` to the output of `id -u` and
 `id -g` so the server can write its saves.
 
 ```sh
-docker compose up --build -d
+docker compose pull            # the prebuilt image from ghcr.io
+docker compose up -d
 docker compose logs -f fo2-dedicated-server
 ```
 
-Players connect to the Docker host on TCP port 9200. The plain-text admin channel
-is TCP 9201 and is bound to `127.0.0.1` by default because it has no authorization
-layer:
+`docker compose up --build -d` builds the image from this checkout instead.
+
+Players connect to the Docker host on TCP port 9300, the port the Windows *Join*
+launcher assumes. The plain-text admin channel is TCP 9301 and is bound to
+`127.0.0.1` by default because it has no authorization layer:
 
 ```sh
-printf 'status\n' | nc -q1 127.0.0.1 9201
+printf 'status\n' | nc -q1 127.0.0.1 9301
 ```
 
 Set `F2_SERVER_CMD_BIND=0.0.0.0` only when a firewall or private network protects
@@ -36,16 +41,17 @@ the port.
 Linux (run from the Fallout 2 installation directory):
 
 ```sh
-env F2_CLIENT_CONNECT=SERVER_IP:9200 \
+env F2_CLIENT_CONNECT=SERVER_IP:9300 \
     F2_PLAYER_NAME=Player F2_PLAYER_CREATE=ask F2_WINDOWED=1 \
     /path/to/fallout2-ce
 ```
 
-Windows PowerShell (with `fallout2-ce.exe` in the Fallout 2 directory):
+Windows: run *Fallout 2 SuperCoop - Join* and enter `SERVER_IP`. By hand, in
+PowerShell from the SuperCoop folder:
 
 ```powershell
-Set-Location 'C:\Games\Fallout2'
-$env:F2_CLIENT_CONNECT = 'SERVER_IP:9200'
+Set-Location 'D:\Games\Fallout 2 SuperCoop'
+$env:F2_CLIENT_CONNECT = 'SERVER_IP:9300'
 $env:F2_PLAYER_NAME = 'Player'
 $env:F2_PLAYER_CREATE = 'ask'
 $env:F2_WINDOWED = '1'
@@ -66,12 +72,15 @@ The default autosave interval is five minutes. Before a planned stop, request a
 save over the admin channel and wait for the success reply, then stop the service:
 
 ```sh
-printf 'save 1 before container stop\n' | nc -q1 127.0.0.1 9201
+printf 'save 1 before container stop\n' | nc -q1 127.0.0.1 9301
 docker compose down
 ```
 
-To restore a save, replace `F2_SERVER_MAP=...` in `.env` with
-`F2_SERVER_LOAD=<slot>`. To use the lobby, omit both variables and select a world
+`F2_SERVER_LOAD=newest` (the image default) continues the most recently written
+save on every start, and starts a new game on `F2_SERVER_MAP` (default
+`artemple.map`) when the folder has no saves yet, so restarts and image updates
+pick up where the party left off. Set `F2_SERVER_LOAD=<slot>` to load one slot
+instead. To use the lobby, set `F2_SERVER_LOAD=` (empty) and select a world
 through the admin channel with `saves`, `load <slot>`, or `new <map.map>`.
 
 Compose defaults both authoritative difficulty settings to their hardest values:
@@ -79,7 +88,12 @@ Compose defaults both authoritative difficulty settings to their hardest values:
 range is `0` Easy/Wimpy, `1` Normal, `2` Hard/Rough. These overrides are reapplied
 after loading a save; client Preferences do not change server difficulty.
 
-## Build, export, and publish
+## Image
+
+Every release publishes `ghcr.io/bclark9153/fallout2-supercoop-server` tagged
+`latest` and with the release version (for example `0.1.2`). Pin `F2_IMAGE_TAG`
+in `.env` to the version your players' Windows release has. To build and publish
+your own:
 
 ```sh
 docker compose build fo2-dedicated-server

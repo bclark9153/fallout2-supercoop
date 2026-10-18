@@ -10,6 +10,9 @@
 
 Everyone in a game needs this same release. To update later, run the new release's `install.cmd` on the same folder; saves are kept.
 
+### Dedicated server (Unraid / Docker)
+`ghcr.io/bclark9153/fallout2-supercoop-server` runs the server headless; mount a copy of your installed SuperCoop folder at `/game`. Unraid template and steps: [README](https://github.com/bclark9153/fallout2-supercoop#run-the-server-on-unraid-or-docker).
+
 ### What's in it
 - The Restoration Project running on the co-op server: sfall mod loading, the sfall functions and hook scripts RP and its bundled mods use, and RP's global scripts (with their timers) on the server.
 - RP made multiplayer-aware: scripts act on the player involved, per-player interface tags (ADDICT, CRIPPLED, NPC CRIPPLED), Party Orders hotkeys from every player.

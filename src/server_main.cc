@@ -23,6 +23,7 @@
 
 #include <chrono>
 #include <string>
+#include <sys/stat.h>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -37,6 +38,7 @@
 #include "server_worldmap.h" // worldmapSetServerPump — worldmap block-and-pump seam
 #include "worldmap.h" // worldmapEncounterSetServerPump — random-encounter prompt barrier
 #include "object.h"
+#include "platform_compat.h"
 #include "pres_record.h"
 #include "presenter_network.h"
 #include "server_admin.h"
@@ -48,6 +50,30 @@
 #include "server_loop.h"
 #include "server_net.h"
 #include "state_dump.h"
+
+// The slot (0-based) whose data\\SAVEGAME\\SLOTnn\\SAVE.DAT was written most
+// recently, or -1. Runs before the file database is mounted, so it looks at the
+// disk directly (case-resolved on Linux). File time, like the party-wipe reload.
+static int serverNewestSaveSlotOnDisk()
+{
+    int best = -1;
+    time_t bestTime = 0;
+    for (int slot = 0; slot < 16; slot++) {
+        char path[COMPAT_MAX_PATH];
+        snprintf(path, sizeof(path), "data\\SAVEGAME\\SLOT%.2d\\SAVE.DAT", slot + 1);
+        fallout::compat_windows_path_to_native(path);
+        fallout::compat_resolve_path(path);
+        struct stat st;
+        if (stat(path, &st) != 0 || st.st_size == 0) {
+            continue;
+        }
+        if (best < 0 || st.st_mtime > bestTime) {
+            best = slot;
+            bestTime = st.st_mtime;
+        }
+    }
+    return best;
+}
 
 int main(int argc, char** argv)
 {
@@ -102,6 +128,23 @@ int main(int argc, char** argv)
     // headless invocation keeps its exact behaviour.
     const char* loadSlotEnv = getenv("F2_SERVER_LOAD");
     int loadSlot = loadSlotEnv != nullptr ? atoi(loadSlotEnv) - 1 : -1;
+
+    // F2_SERVER_LOAD=newest: continue the most recently written save, or, with
+    // nothing saved yet, start F2_SERVER_MAP (default the Temple of Trials). The
+    // restart-safe choice for a container or a service: a fixed F2_SERVER_MAP
+    // starts a NEW world on every restart. Same rule as start-server.cmd.
+    if (loadSlotEnv != nullptr && (fallout::compat_stricmp(loadSlotEnv, "newest") == 0 || fallout::compat_stricmp(loadSlotEnv, "latest") == 0)) {
+        loadSlot = serverNewestSaveSlotOnDisk();
+        if (loadSlot >= 0) {
+            fprintf(stderr, "f2_server: F2_SERVER_LOAD=newest -> continuing slot %d\n", loadSlot + 1);
+            mapName = nullptr;
+        } else {
+            if (mapName == nullptr) {
+                mapName = "artemple.map";
+            }
+            fprintf(stderr, "f2_server: F2_SERVER_LOAD=newest -> no save yet, starting a new game on %s\n", mapName);
+        }
+    }
 
     // ►► BOTH SET = RESTORE WINS, loudly. The two are alternatives, not a pair, and
     // the map used to win silently — which cost a live debugging session: every

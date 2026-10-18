@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!--
+  Unraid Docker template for the Fallout 2 SuperCoop dedicated server.
+  Copy to /boot/config/plugins/dockerMan/templates-user/my-fallout2-supercoop.xml,
+  then Docker tab -> Add Container -> Template: fallout2-supercoop.
+-->
+<Container version="2">
+  <Name>fallout2-supercoop</Name>
+  <Repository>ghcr.io/bclark9153/fallout2-supercoop-server:latest</Repository>
+  <Registry>https://github.com/bclark9153/fallout2-supercoop/pkgs/container/fallout2-supercoop-server</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/bclark9153/fallout2-supercoop/issues</Support>
+  <Project>https://github.com/bclark9153/fallout2-supercoop</Project>
+  <Overview>Fallout 2 co-op dedicated server with the Restoration Project. Mount a copy of your installed "Fallout 2 SuperCoop" folder (made by the Windows installer) at /game; saves are written into it. On start it continues the newest save, or begins a new game. Players join with the same SuperCoop release over a VPN (ZeroTier/Tailscale); never forward the port to the internet.</Overview>
+  <Category>GameServers:</Category>
+  <WebUI/>
+  <Icon>https://raw.githubusercontent.com/bclark9153/fallout2-supercoop/main/docs/logo.png</Icon>
+  <ExtraParams>--user 99:100 --init --read-only --cap-drop ALL --security-opt no-new-privileges</ExtraParams>
+  <PostArgs/>
+  <Config Name="Game port" Target="9300" Default="9300" Mode="tcp" Description="Players join this port. The Windows join launcher assumes 9300." Type="Port" Display="always" Required="true" Mask="false">9300</Config>
+  <Config Name="Game folder" Target="/game" Default="/mnt/user/appdata/fallout2-supercoop" Mode="rw" Description="A copy of your installed 'Fallout 2 SuperCoop' folder (master.dat, critter.dat, mods, data...). Must be writable by nobody:users (99:100)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/fallout2-supercoop</Config>
+  <Config Name="Server name" Target="F2_SERVER_NAME" Default="Fallout 2 SuperCoop" Mode="" Description="Shown to players when they connect." Type="Variable" Display="always" Required="false" Mask="false">Fallout 2 SuperCoop</Config>
+  <Config Name="World" Target="F2_SERVER_LOAD" Default="newest" Mode="" Description="newest = continue the most recent save (or start a new game when there is none). A number 1-16 loads that slot." Type="Variable" Display="always" Required="false" Mask="false">newest</Config>
+  <Config Name="Game difficulty" Target="F2_GAME_DIFFICULTY" Default="1" Mode="" Description="0 Easy, 1 Normal, 2 Hard." Type="Variable" Display="always" Required="false" Mask="false">1</Config>
+  <Config Name="Combat difficulty" Target="F2_COMBAT_DIFFICULTY" Default="1" Mode="" Description="0 Wimpy, 1 Normal, 2 Rough." Type="Variable" Display="always" Required="false" Mask="false">1</Config>
+  <Config Name="Autosave seconds" Target="F2_AUTOSAVE_SECS" Default="300" Mode="" Description="Autosave interval (rotating slots 11-15). 0 = off." Type="Variable" Display="advanced" Required="false" Mask="false">300</Config>
+  <Config Name="Engine debug log" Target="F2_SERVER_DEBUG_LOG" Default="0" Mode="" Description="1 writes f2_server-debug.log into the game folder (for troubleshooting)." Type="Variable" Display="advanced" Required="false" Mask="false">0</Config>
+</Container>
