@@ -37,6 +37,7 @@ elif command -v strip >/dev/null 2>&1; then
 fi
 
 mkdir -p "$out_dir"
+out_dir="$(cd "$out_dir" && pwd)"
 zip_path="$out_dir/$name-windows.zip"
 rm -f "$zip_path"
 (cd "$stage" && zip -qr9 "$zip_path" "$name")
