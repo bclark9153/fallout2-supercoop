@@ -24,6 +24,11 @@
 #include <chrono>
 #include <string>
 #include <sys/stat.h>
+#ifndef _WIN32
+#include <signal.h>
+#include <ucontext.h>
+#include <unistd.h>
+#endif
 #include <thread>
 #include <utility>
 #include <vector>
@@ -75,8 +80,103 @@ static int serverNewestSaveSlotOnDisk()
     return best;
 }
 
+#ifndef _WIN32
+// Crash report. A static, stripped server in a container dies silently on a fault
+// (no core, no libc backtrace on musl), which leaves "the log just stops". Write
+// the signal, the faulting address, the instruction pointer and every stack word
+// that points into the program's code, so the unstripped build of the same release
+// can turn them into a call chain (addr2line -e f2_server <addresses>). Only
+// async-signal-safe calls (write) are used.
+extern "C" char __executable_start;
+extern "C" char etext;
+
+static void crashWriteHex(char* out, int* len, uintptr_t value)
+{
+    out[(*len)++] = '0';
+    out[(*len)++] = 'x';
+    char digits[16];
+    int n = 0;
+    do {
+        digits[n++] = "0123456789abcdef"[value & 0xF];
+        value >>= 4;
+    } while (value != 0 && n < 16);
+    while (n > 0) {
+        out[(*len)++] = digits[--n];
+    }
+}
+
+static void crashWriteStr(char* out, int* len, const char* text)
+{
+    while (*text != '\0') {
+        out[(*len)++] = *text++;
+    }
+}
+
+static void serverCrashHandler(int sig, siginfo_t* info, void* context)
+{
+    char line[4096];
+    int len = 0;
+    crashWriteStr(line, &len, "f2_server: CRASH signal ");
+    crashWriteHex(line, &len, (uintptr_t)sig);
+    crashWriteStr(line, &len, " addr ");
+    crashWriteHex(line, &len, (uintptr_t)(info != nullptr ? info->si_addr : nullptr));
+    uintptr_t sp = 0;
+#if defined(__x86_64__)
+    ucontext_t* uc = static_cast<ucontext_t*>(context);
+    crashWriteStr(line, &len, " ip ");
+    crashWriteHex(line, &len, (uintptr_t)uc->uc_mcontext.gregs[REG_RIP]);
+    sp = (uintptr_t)uc->uc_mcontext.gregs[REG_RSP];
+#else
+    (void)context;
+#endif
+    crashWriteStr(line, &len, " base ");
+    crashWriteHex(line, &len, (uintptr_t)&__executable_start);
+    crashWriteStr(line, &len, "\nf2_server: CRASH stack");
+    if (sp != 0) {
+        const uintptr_t textStart = (uintptr_t)&__executable_start;
+        const uintptr_t textEnd = (uintptr_t)&etext;
+        const uintptr_t* words = reinterpret_cast<const uintptr_t*>(sp);
+        int found = 0;
+        for (int i = 0; i < 2048 && found < 48 && len < (int)sizeof(line) - 40; i++) {
+            if (words[i] >= textStart && words[i] < textEnd) {
+                line[len++] = ' ';
+                crashWriteHex(line, &len, words[i]);
+                found++;
+            }
+        }
+    }
+    crashWriteStr(line, &len, "\n");
+    ssize_t ignored = write(2, line, len);
+    (void)ignored;
+
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+static void serverInstallCrashHandler()
+{
+    static char altStack[64 * 1024];
+    stack_t ss = {};
+    ss.ss_sp = altStack;
+    ss.ss_size = sizeof(altStack);
+    sigaltstack(&ss, nullptr);
+
+    struct sigaction sa = {};
+    sa.sa_sigaction = serverCrashHandler;
+    sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+    sigemptyset(&sa.sa_mask);
+    const int signals[] = { SIGSEGV, SIGBUS, SIGFPE, SIGILL, SIGABRT };
+    for (int sig : signals) {
+        sigaction(sig, &sa, nullptr);
+    }
+}
+#else
+static void serverInstallCrashHandler() { }
+#endif
+
 int main(int argc, char** argv)
 {
+    serverInstallCrashHandler();
     fallout::serverSetWorldmapBaseline(fallout::worldmapServerEmitBaseline);
     fallout::serverSetWorldmapBeat(fallout::worldmapServerEmitAreasIfChanged);
     using namespace fallout;

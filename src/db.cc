@@ -642,7 +642,7 @@ int fileNameListInit(const char* pattern, char*** fileNameListPtr, int a3, int a
         for (int index = 0; index < fileNamesLength - 1; index++) {
             if (compat_stricmp(xlist->fileNames[index], xlist->fileNames[index + 1]) == 0) {
                 char* temp = xlist->fileNames[index + 1];
-                memmove(&(xlist->fileNames[index + 1]), &(xlist->fileNames[index + 2]), sizeof(*xlist->fileNames) * (xlist->fileNamesLength - index - 1));
+                memmove(&(xlist->fileNames[index + 1]), &(xlist->fileNames[index + 2]), sizeof(*xlist->fileNames) * (xlist->fileNamesLength - index - 2));
                 xlist->fileNames[xlist->fileNamesLength - 1] = temp;
 
                 fileNamesLength--;

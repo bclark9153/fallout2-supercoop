@@ -21,11 +21,20 @@ COPY . .
 # lets the final image contain the server and nothing else.
 RUN cmake -S . -B /build -G Ninja \
         -DCMAKE_BUILD_TYPE=MinSizeRel \
+        -DCMAKE_C_FLAGS=-g \
+        -DCMAKE_CXX_FLAGS=-g \
         -DCMAKE_EXE_LINKER_FLAGS=-static \
         -DFALLOUT_VENDORED=OFF \
         -DZLIB_LIBRARY=/usr/lib/libz.a \
     && cmake --build /build --target f2_server --parallel \
+    && cp /build/f2_server /build/f2_server-linux-debug \
     && strip /build/f2_server
+
+# The unstripped twin of the shipped binary, published with each release so a
+# "f2_server: CRASH" line from the container can be turned into a call chain:
+#   addr2line -f -C -e f2_server-linux-debug <ip - base> ...
+FROM scratch AS symbols
+COPY --from=builder /build/f2_server-linux-debug /
 
 FROM scratch AS fo2-dedicated-server
 

@@ -5,6 +5,16 @@ earlier entries are fallout2-coop's, on
 [its releases page](https://github.com/gusmarcum/fallout2-coop/releases). The server and every
 client must run the same version.
 
+## SuperCoop v0.1.4 (2026-10-18)
+
+- The server writes a crash report (`f2_server: CRASH ...`: signal, address and the code
+  addresses on the stack) to its log if it ever dies, instead of stopping silently. Each
+  release now includes `f2_server-linux-debug`, the unstripped build of the server image,
+  to turn those addresses into function names.
+- Fixed two out-of-bounds reads found with AddressSanitizer: duplicate removal in file
+  listings (inherited from fallout2-ce) and sfall `list_as_array` on objects with no
+  prototype.
+
 ## SuperCoop v0.1.3 (2026-10-18)
 
 - The camera is no longer stopped by the maps' invisible scroll blockers, which were

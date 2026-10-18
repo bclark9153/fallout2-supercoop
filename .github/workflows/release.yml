@@ -82,6 +82,9 @@ jobs:
 
   docker:
     name: Server image (ghcr.io)
+    # After the Windows job, which creates the release this job adds the
+    # server's debug symbols to.
+    needs: windows
 
     runs-on: ubuntu-latest
 
@@ -117,3 +120,17 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Debug symbols
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: symbols
+          platforms: linux/amd64
+          outputs: type=local,dest=symbols
+
+      - name: Attach symbols to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          files: symbols/f2_server-linux-debug
